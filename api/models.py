@@ -41,6 +41,7 @@ def save_user_profile(sender, instance, **kwargs):
 post_save.connect(create_user_profile, sender=User)
 post_save.connect(save_user_profile, sender=User)
 
+
 class Client(models.Model):
     client_id = models.AutoField(primary_key=True)  # Identifiant unique du client
     nom = models.CharField(max_length=50)  # Nom du client
