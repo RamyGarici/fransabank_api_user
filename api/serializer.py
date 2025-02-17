@@ -1,0 +1,60 @@
+from api.models import User,Profile
+from django.contrib.auth.password_validation import validate_password
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework import serializers
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email')
+
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)  
+
+        token['first_name'] = user.profile.first_name
+        token['last_name'] = user.profile.last_name
+        token['username'] = user.username
+        token['email'] = user.email
+        token['verified'] = user.profile.verified
+
+        return token  
+
+from rest_framework import serializers
+from django.contrib.auth.password_validation import validate_password
+from api.models import User
+
+from rest_framework import serializers
+from django.contrib.auth.password_validation import validate_password
+from api.models import User
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    password2 = serializers.CharField(write_only=True, required=True)
+    first_name = serializers.CharField(write_only=True, required=True)  # Ajout de first_name
+    last_name = serializers.CharField(write_only=True, required=True)   # Ajout de last_name
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'password', 'password2', 'first_name', 'last_name')  # Inclure first_name et last_name
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password2']:
+            raise serializers.ValidationError({"password": "Les mots de passe ne correspondent pas."})
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('password2')  # Enlever password2 qui n'est pas nécessaire pour la création de l'utilisateur
+        user = User.objects.create(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],  # Assigner first_name
+            last_name=validated_data['last_name'],    # Assigner last_name
+        )
+        user.set_password(validated_data['password'])  # Hash du mot de passe
+        user.save()  # Sauvegarder l'utilisateur
+        return user
+
+ 
