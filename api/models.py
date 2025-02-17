@@ -67,6 +67,13 @@ class TypeClient(models.Model):
     def __str__(self):
         return self.nom_type
 
+class TypeCompte(models.Model):
+    type_compte_id = models.AutoField(primary_key=True)  # Identifiant unique du type de compte
+    nom_type = models.CharField(max_length=50)  # Nom du type de compte
+
+    def __str__(self):
+        return self.nom_type 
+
 
 class Compte(models.Model):
     compte_id = models.AutoField(primary_key=True)  # Identifiant unique du compte
@@ -79,14 +86,12 @@ class Compte(models.Model):
     def __str__(self):
         return f"Compte {self.compte_id} - Type: {self.type_compte.nom_type} - Client: {self.client.nom} {self.client.prenom}"
 
-
-class TypeCompte(models.Model):
-    type_compte_id = models.AutoField(primary_key=True)  # Identifiant unique du type de compte
-    nom_type = models.CharField(max_length=50)  # Nom du type de compte
+class TypeDocument(models.Model):
+    type_document_id = models.AutoField(primary_key=True)  # Identifiant unique du type de document
+    nom_type = models.CharField(max_length=50)  # Nom du type de document
 
     def __str__(self):
-        return self.nom_type 
-
+        return self.nom_type
 
 class Document(models.Model):
     document_id = models.AutoField(primary_key=True)  # Identifiant unique du document
@@ -99,14 +104,12 @@ class Document(models.Model):
     def __str__(self):
         return f"Document {self.document_id} - Type: {self.type_document.nom_type} - Client: {self.client.nom} {self.client.prenom}"
 
-
-class TypeDocument(models.Model):
-    type_document_id = models.AutoField(primary_key=True)  # Identifiant unique du type de document
-    nom_type = models.CharField(max_length=50)  # Nom du type de document
+class TypeAgent(models.Model):
+    type_agent_id = models.AutoField(primary_key=True)  # Identifiant unique du type d'agent
+    nom_type = models.CharField(max_length=50)  # Nom du type d'agent
 
     def __str__(self):
         return self.nom_type
-
 
 class Agent(models.Model):
     agent_id = models.AutoField(primary_key=True)  # Identifiant unique de l'agent
@@ -119,14 +122,12 @@ class Agent(models.Model):
     def __str__(self):
         return f"Agent {self.prenom} {self.nom} - Rôle: {self.role} - Type: {self.type_agent.nom_type}"
 
-
-class TypeAgent(models.Model):
-    type_agent_id = models.AutoField(primary_key=True)  # Identifiant unique du type d'agent
-    nom_type = models.CharField(max_length=50)  # Nom du type d'agent
+class TypeOffre(models.Model):
+    type_offre_id = models.AutoField(primary_key=True)  # Identifiant unique du type d'offre
+    nom_type = models.CharField(max_length=50)  # Nom du type d'offre
 
     def __str__(self):
         return self.nom_type
-
 
 class Offre(models.Model):
     offre_id = models.AutoField(primary_key=True)  # Identifiant unique de l'offre
@@ -138,13 +139,6 @@ class Offre(models.Model):
     def __str__(self):
         return f"Offre {self.offre_id} - Type: {self.type_offre.nom_type} - Client: {self.client.nom} {self.client.prenom}"
 
-
-class TypeOffre(models.Model):
-    type_offre_id = models.AutoField(primary_key=True)  # Identifiant unique du type d'offre
-    nom_type = models.CharField(max_length=50)  # Nom du type d'offre
-
-    def __str__(self):
-        return self.nom_type
 
 
 class CreditBancaire(models.Model):
@@ -172,6 +166,13 @@ class Echeance(models.Model):
     def __str__(self):
         return f"Échéance {self.echeance_id} - Crédit ID: {self.credit.credit_id} - Montant: {self.montant_echeance}"
 
+class TypeTransaction(models.Model):
+    type_transaction_id = models.AutoField(primary_key=True)  # Identifiant unique du type de transaction
+    nom_type = models.CharField(max_length=50)  # Nom du type de transaction
+
+    def __str__(self):
+        return self.nom_type
+
 
 class Transaction(models.Model):
     transaction_id = models.AutoField(primary_key=True)  # Identifiant unique de la transaction
@@ -187,15 +188,7 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"Transaction {self.transaction_id} - Compte ID: {self.compte.compte_id} - Montant: {self.montant} - Statut: {self.statut_transaction}"
-
-
-class TypeTransaction(models.Model):
-    type_transaction_id = models.AutoField(primary_key=True)  # Identifiant unique du type de transaction
-    nom_type = models.CharField(max_length=50)  # Nom du type de transaction
-
-    def __str__(self):
-        return self.nom_type
-
+        
 
 class ActionNFC(models.Model):
     log_id = models.AutoField(primary_key=True)  # Identifiant unique de l'action
