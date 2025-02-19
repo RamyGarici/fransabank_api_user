@@ -23,11 +23,6 @@ class Profile(models.Model):
         return f"{self.first_name} {self.last_name}"
 
 
-
-
-
-
-
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
@@ -42,22 +37,69 @@ post_save.connect(create_user_profile, sender=User)
 post_save.connect(save_user_profile, sender=User)
 
 
+# Page demande de compte a remplir quand la demande sera accepte creation automatique d'un client
+User = get_user_model() 
+class DemandeCompteBancaire(models.Model):   
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="demandes_comptes")  
+    first_name = models.CharField(max_length=100)  
+    last_name = models.CharField(max_length=100)  
+    date_of_birth = models.DateField()  
+    address = models.TextField()  
+    phone_number = models.CharField(max_length=20)  
+    numero_identite = models.CharField(max_length=20, unique=True)  
+    status = models.CharField(
+        max_length=10, 
+        choices=[('pending', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
+        default='pending'
+    )  
+    created_at = models.DateTimeField(auto_now_add=True)  
+
+    def __str__(self):
+        return f"Demande de {self.user.email} - {self.status}"
+
+
+
 class Client(models.Model):
-    client_id = models.AutoField(primary_key=True)  # Identifiant unique du client
-    nom = models.CharField(max_length=50)  # Nom du client
-    prenom = models.CharField(max_length=50)  # Prénom du client
-    date_naissance = models.DateField()  # Date de naissance du client
-    lieu_naissance = models.CharField(max_length=50)  # Lieu de naissance
-    adresse = models.CharField(max_length=100)  # Adresse du client
-    numero_identite = models.CharField(max_length=20, unique=True)  # Numéro d'identité
-    nationalite = models.CharField(max_length=50)  # Nationalité du client
-    date_creation = models.DateField(auto_now_add=True)  # Date de création du compte
-    email = models.EmailField(unique=True)  # Adresse mail du client
-    mot_de_passe = models.CharField(max_length=255)  # Mot de passe du profil du client
-    type_client_id = models.IntegerField()  # Identifiant du type de client
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="client_profile") 
+    nom = models.CharField(max_length=50)  
+    prenom = models.CharField(max_length=50)  
+    date_naissance = models.DateField()  
+    lieu_naissance = models.CharField(max_length=50, blank=True, null=True) 
+    adresse = models.CharField(max_length=100)  
+    numero_identite = models.CharField(max_length=20, unique=True)  
+    date_creation = models.DateTimeField(auto_now_add=True)  
+    email = models.EmailField(unique=True)  
+    type_client_id = models.IntegerField(default=1) 
 
     def __str__(self):
         return f"{self.prenom} {self.nom}"
+
+
+
+def create_client(sender, instance, **kwargs):
+   
+    if instance.status == 'approved' and not Client.objects.filter(user=instance.user).exists():
+        Client.objects.create(
+            user=instance.user,
+            nom=instance.last_name,
+            prenom=instance.first_name,
+            date_naissance=instance.date_of_birth,
+            adresse=instance.address,
+            numero_identite=instance.numero_identite,
+            email=instance.user.email,
+            type_client_id=1  
+        )
+
+
+post_save.connect(create_client, sender=DemandeCompteBancaire)
+
+
+
+
+
+
+
 
 
 class TypeClient(models.Model):
@@ -76,7 +118,6 @@ class TypeCompte(models.Model):
 
 
 class Compte(models.Model):
-    compte_id = models.AutoField(primary_key=True)  # Identifiant unique du compte
     client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client
     type_compte = models.ForeignKey(TypeCompte, on_delete=models.CASCADE)  # Référence au type de compte
     solde = models.DecimalField(max_digits=10, decimal_places=2)  # Solde actuel du compte
