@@ -1,10 +1,16 @@
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
-from django.urls import path  # correction ici
 from api import views
 
+router = DefaultRouter()
+router.register(r'demandecompte', views.DemandeCompteBancaireViewSet, basename='demandecompte')
+router.register(r'client', views.ClientViewSet, basename='client')
+
 urlpatterns = [
-    path("token", views.MyTokenObtainPairView.as_view()),
-    path("token/refresh/", TokenRefreshView.as_view()),
-    path("register/", views.RegisterView.as_view()),
-   
+    path("login/", views.MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("register/", views.RegisterView.as_view(), name="register"),
+     path('infouser/', views.InfoUserView.as_view(), name='me'), 
+    path("", include(router.urls)), 
 ]

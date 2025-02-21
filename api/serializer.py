@@ -1,7 +1,8 @@
-from api.models import User,Profile
+from api.models import User,Profile,DemandeCompteBancaire,Client
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,13 +23,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return token  
 
-from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
-from api.models import User
 
-from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
-from api.models import User
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
@@ -58,3 +54,20 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
  
+
+class DemandeCompteBancaireSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DemandeCompteBancaire
+        fields = '__all__'
+
+    def validate(self, data):
+        user = self.context['request'].user
+        if DemandeCompteBancaire.objects.filter(user=user, status__in=['pending', 'approved']).exists():
+            raise serializers.ValidationError("Vous avez déjà une demande en cours.")
+        return data
+
+
+class ClientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client  
+        fields = '__all__' 
