@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView,TokenVerifyView
 from api import views
 
 router = DefaultRouter()
@@ -13,4 +13,5 @@ urlpatterns = [
     path("register/", views.RegisterView.as_view(), name="register"),
      path('infouser/', views.InfoUserView.as_view(), name='me'), 
     path("", include(router.urls)), 
+    path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
 ]
