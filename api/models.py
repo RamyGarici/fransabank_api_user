@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
+from django.forms import ValidationError
 
 
 class User(AbstractUser):
@@ -53,7 +54,8 @@ class DemandeCompteBancaire(models.Model):
         max_length=10, 
         choices=[('pending', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
         default='pending'
-    )  
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)  
 
     def __str__(self):
@@ -139,9 +141,10 @@ class Document(models.Model):
     document_id = models.AutoField(primary_key=True)  # Identifiant unique du document
     client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client associé au document
     type_document = models.ForeignKey(TypeDocument, on_delete=models.CASCADE)  # Référence au type de document
-    chemin_fichier = models.CharField(max_length=255)  # Chemin du fichier stocké
+    fichier = models.FileField(max_length=255)  # Chemin du fichier stocké
     date_upload = models.DateField()  # Date de téléchargement du document
     statut_verif = models.CharField(max_length=20)  # Statut de vérification
+    demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.CASCADE, blank=True, null=True) #hna bash ndiro relation demandecreation ou document
 
     def __str__(self):
         return f"Document {self.document_id} - Type: {self.type_document.nom_type} - Client: {self.client.nom} {self.client.prenom}"

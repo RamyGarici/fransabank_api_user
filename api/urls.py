@@ -3,6 +3,7 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView,TokenVerifyView
 from api import views
 
+
 router = DefaultRouter()
 router.register(r'demandecompte', views.DemandeCompteBancaireViewSet, basename='demandecompte')
 router.register(r'client', views.ClientViewSet, basename='client')

@@ -7,6 +7,8 @@ from rest_framework import generics,viewsets
 from rest_framework.permissions import AllowAny,IsAuthenticated,IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from .models import DemandeCompteBancaire, Document, TypeDocument
+from django.http import JsonResponse
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer  
@@ -28,7 +30,7 @@ class InfoUserView(APIView):
 class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
     serializer_class = DemandeCompteBancaireSerializer
     permission_classes = [IsAuthenticated]
-
+    queryset = DemandeCompteBancaire.objects.all()
     def get_queryset(self):
         user = self.request.user
         if user.is_staff:
@@ -49,6 +51,26 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
         demande.save()  
         
         return Response({"message": "Demande approuvée et client créé."})
+    
+    @action(detail=True, methods=['post'])
+    def upload_document(self, request, pk=None):
+        demande = self.get_object()
+        type_document_id = request.POST.get('type_document_id')
+        type_document = TypeDocument.objects.filter(id=type_document_id).first()
+
+        if not type_document:
+            return Response({'error': 'Type de document non valide'}, status=400)
+
+        document = Document(
+            client=demande.user.client_profile,  # Associer le client
+            demande=demande,  # Associer la demande de compte
+            type_document=type_document,  # Spécifier le type de document
+            fichier=request.FILES['document']
+        )
+        document.save()
+
+        return Response({'message': 'Document ajouté avec succès !', 'document_url': document.fichier.url})
+
 
 
 class ClientViewSet(viewsets.ReadOnlyModelViewSet):  
