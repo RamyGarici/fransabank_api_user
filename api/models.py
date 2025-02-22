@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.forms import ValidationError
-
+from datetime import datetime
 
 class User(AbstractUser):
     username = models.CharField(max_length=100)
@@ -144,15 +144,15 @@ class TypeDocument(models.Model):
 
 class Document(models.Model):
     document_id = models.AutoField(primary_key=True)  # Identifiant unique du document
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client associé au document
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Référence au user associé au document
     type_document = models.ForeignKey(TypeDocument, on_delete=models.CASCADE)  # Référence au type de document
     fichier = models.FileField(max_length=255)  # Chemin du fichier stocké
-    date_upload = models.DateField()  # Date de téléchargement du document
+    date_upload = datetime.now()  # Date de téléchargement du document
     statut_verif = models.CharField(max_length=20)  # Statut de vérification
     demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.CASCADE, blank=True, null=True) #hna bash ndiro relation demandecreation ou document
 
     def __str__(self):
-        return f"Document {self.document_id} - Type: {self.type_document.nom_type} - Client: {self.client.nom} {self.client.prenom}"
+        return f"Document {self.document_id} - Type: {self.type_document.nom_type} - "
 
 class TypeAgent(models.Model):
     type_agent_id = models.AutoField(primary_key=True)  # Identifiant unique du type d'agent

@@ -66,7 +66,7 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Type de document non valide'}, status=400)
 
         document = Document(
-            client=demande.user.client_profile,  # Associer le client
+            #user=demande.user,  # Associer le client
             demande=demande,  # Associer la demande de compte
             type_document=type_document,  # Spécifier le type de document
             fichier=request.FILES['document']
