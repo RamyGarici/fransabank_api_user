@@ -47,7 +47,7 @@ post_save.connect(save_user_profile, sender=User)
 User = get_user_model() 
 class DemandeCompteBancaire(models.Model):   
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="demandes_comptes")  
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="demandes_comptes")  
     first_name = models.CharField(max_length=100)  
     last_name = models.CharField(max_length=100)  
     date_of_birth = models.DateField()  
@@ -69,6 +69,7 @@ class DemandeCompteBancaire(models.Model):
 
 class Client(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="client_profile") 
+    demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.SET_NULL, null=True, blank=True, related_name="client")  
     nom = models.CharField(max_length=50)  
     prenom = models.CharField(max_length=50)  
     date_naissance = models.DateField()  

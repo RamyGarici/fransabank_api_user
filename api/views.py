@@ -60,7 +60,7 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
     def upload_document(self, request, pk=None):
         demande = self.get_object()
         type_document_id = request.POST.get('type_document_id')
-        type_document = TypeDocument.objects.filter(id=type_document_id).first()
+        type_document = TypeDocument.objects.filter(type_document_id=type_document_id).first()
 
         if not type_document:
             return Response({'error': 'Type de document non valide'}, status=400)
