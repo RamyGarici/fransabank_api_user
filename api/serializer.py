@@ -59,6 +59,8 @@ class DemandeCompteBancaireSerializer(serializers.ModelSerializer):
     class Meta:
         model = DemandeCompteBancaire
         fields = '__all__'
+        extra_kwargs = {
+           "user": {"read_only": True}}
 
     def validate(self, data):
         user = self.context['request'].user

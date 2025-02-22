@@ -24,7 +24,11 @@ class InfoUserView(APIView):
         serializer = UserSerializer(request.user)  # Sérialiser l'utilisateur connecté
         return Response(serializer.data)  # Retourner ses infos
 
-
+class LogoutView(APIView):
+    permission_classes=[IsAuthenticated]
+    def post(self,request):
+        request.user.auth_token.delete()
+        return Response({"message":"Deconnexion reussie"},status=200)
 
 
 class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
