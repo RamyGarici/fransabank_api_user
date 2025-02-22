@@ -12,7 +12,7 @@ urlpatterns = [
     path("login/", views.MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("register/", views.RegisterView.as_view(), name="register"),
-     path('infouser/', views.InfoUserView.as_view(), name='me'), 
+    path('infouser/', views.InfoUserView.as_view(), name='me'), 
     path("", include(router.urls)), 
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path('logout/', views.LogoutView.as_view(), name='logout'),
