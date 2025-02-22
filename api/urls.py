@@ -15,4 +15,5 @@ urlpatterns = [
      path('infouser/', views.InfoUserView.as_view(), name='me'), 
     path("", include(router.urls)), 
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+    path('logout/', views.LogoutView.as_view(), name='logout'),
 ]
