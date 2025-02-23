@@ -146,7 +146,7 @@ class Document(models.Model):
     document_id = models.AutoField(primary_key=True)  # Identifiant unique du document
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Référence au user associé au document
     type_document = models.ForeignKey(TypeDocument, on_delete=models.CASCADE)  # Référence au type de document
-    fichier = models.FileField(max_length=255)  # Chemin du fichier stocké
+    fichier = models.FileField(upload_to='documents/')  # Chemin du fichier stocké
     date_upload = datetime.now()  # Date de téléchargement du document
     statut_verif = models.CharField(max_length=20)  # Statut de vérification
     demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.CASCADE, blank=True, null=True) #hna bash ndiro relation demandecreation ou document

@@ -55,6 +55,18 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
         demande.save()  
         
         return Response({"message": "Demande approuvée et client créé."})
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def rejeter(self, request, pk=None):
+        
+        demande = self.get_object()
+        if demande.status == 'rejected':
+            return Response({"message": "Cette demande est déjà rejetée."}, status=400)
+
+        demande.status = 'rejected'
+        demande.save()  
+        
+        return Response({"message": "Demande rejetée ."})
+    
     
     @action(detail=True, methods=['post'])
     def upload_document(self, request, pk=None):
