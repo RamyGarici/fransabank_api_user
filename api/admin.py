@@ -3,6 +3,7 @@ from api.models import User, Profile
 from .models import TypeDocument 
 from .models import DemandeCompteBancaire ,Document
 from django.utils.translation import gettext_lazy as _
+from django.utils.html import format_html
 
 class UserAdmin(admin.ModelAdmin):
     list_display = ['username', 'email']
@@ -17,8 +18,16 @@ admin.site.register(TypeDocument)
 
 class DocumentInline(admin.TabularInline):  
     model = Document
-    extra = 1  # Nombre de champs vides à afficher pour ajouter de nouveaux documents
-    fields = ('type_document', 'fichier', 'statut_verif',)
+    extra = 1  # Nombre de champs vides pour ajouter de nouveaux documents
+    fields = ('type_document', 'fichier_link', 'statut_verif')  # Utiliser fichier_link au lieu de fichier
+    readonly_fields = ('fichier_link',)  # Rendre le lien non modifiable
+
+    def fichier_link(self, obj):
+        if obj.fichier:
+            return format_html('<a href="{}" target="_blank">Voir le document</a>', obj.fichier.url)
+        return "Aucun fichier"
+
+    fichier_link.short_description = "Document"  # Correction de l'indentation
 #reglage bash ndiro ghir les demandes li status mashi approuvé
 #@admin.register(DemandeCompteBancaire)
 #class DemandeCompteBancaireAdmin(admin.ModelAdmin):
