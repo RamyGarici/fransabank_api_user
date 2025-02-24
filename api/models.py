@@ -48,6 +48,7 @@ User = get_user_model()
 class DemandeCompteBancaire(models.Model):   
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="demandes_comptes")  
+    #ajout de profil
     first_name = models.CharField(max_length=100)  
     last_name = models.CharField(max_length=100)  
     date_of_birth = models.DateField()  
@@ -61,6 +62,7 @@ class DemandeCompteBancaire(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)  
+    #deleted_at = models.NullBooleanField("Null")
 
     def __str__(self):
         return f"Demande de {self.user.email} - {self.status}"
@@ -145,6 +147,8 @@ class TypeDocument(models.Model):
 class Document(models.Model):
     document_id = models.AutoField(primary_key=True)  # Identifiant unique du document
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Référence au user associé au document
+    #ajout de profil
+    #demande
     type_document = models.ForeignKey(TypeDocument, on_delete=models.CASCADE)  # Référence au type de document
     fichier = models.FileField(upload_to='documents/')  # Chemin du fichier stocké
     date_upload = datetime.now()  # Date de téléchargement du document

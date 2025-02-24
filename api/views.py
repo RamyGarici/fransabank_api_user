@@ -84,7 +84,8 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
             fichier=request.FILES['document']
         )
         document.save()
-
+#ajouter status true or false
+#ajouter if pour tester le document s envoie qu une seule fois
         return Response({'message': 'Document ajouté avec succès !', 'document_url': document.fichier.url})
 
 
