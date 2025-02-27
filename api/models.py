@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.forms import ValidationError
 from datetime import datetime
+from django.utils import timezone
 import secrets
 
 class User(AbstractUser):
@@ -17,32 +18,35 @@ class User(AbstractUser):
     def soft_delete(self):
         self.deleted_at = datetime.now()
         self.save()
-        
-        if hasattr(self, 'profile'):
+
+        if hasattr(self, 'profile') and self.profile:
             self.profile.soft_delete()
-        if hasattr(self, 'demandes_comptes'):
+        if hasattr(self, 'demandes_comptes') and self.demandes_comptes:
             self.demandes_comptes.soft_delete()
-        if hasattr(self, 'client_profile'):
+        if hasattr(self, 'client_profile') and self.client_profile:
             self.client_profile.soft_delete()
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
     def __str__(self):
         return self.username
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.SET_NULL)
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    deleted_at=models.DateTimeField(null=True,blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     def soft_delete(self):
-        self.deleted_at=datetime.now()
+        self.deleted_at = datetime.now()
         self.save()
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
-
 
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
@@ -52,21 +56,17 @@ def create_user_profile(sender, instance, created, **kwargs):
             last_name=instance.last_name     
         )
 
-
 def save_user_profile(sender, instance, **kwargs):
     if hasattr(instance, 'profile'):  
         instance.profile.save()
 
-
 post_save.connect(create_user_profile, sender=User)
 post_save.connect(save_user_profile, sender=User)
 
-
-# Page demande de compte a remplir quand la demande sera accepte creation automatique d'un client
 User = get_user_model() 
 class DemandeCompteBancaire(models.Model):   
     demande_id = models.CharField(max_length=12, unique=True, editable=False, blank=True, null=True)
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, related_name="demandes_comptes") 
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="demandes_comptes") 
     first_name = models.CharField(max_length=100)  
     last_name = models.CharField(max_length=100)  
     date_of_birth = models.DateField()  
@@ -85,8 +85,7 @@ class DemandeCompteBancaire(models.Model):
         while True:
             demande_id = str(secrets.randbelow(10**12)).zfill(12)
             if not DemandeCompteBancaire.objects.filter(demande_id=demande_id).exists():
-               return demande_id
-
+                return demande_id
 
     def save(self, *args, **kwargs):
         if not self.demande_id:
@@ -96,16 +95,16 @@ class DemandeCompteBancaire(models.Model):
     def soft_delete(self):
         self.deleted_at = datetime.now()
         self.save()
+        if hasattr(self, 'client') and self.client:
+            self.client.soft_delete()
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
     def __str__(self):
         return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.status}"
 
-
-
-
-
 class Client(models.Model):
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, related_name="client_profile") 
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="client_profile") 
     client_id = models.CharField(max_length=16, unique=True, editable=False, blank=True, null=True)
     demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.SET_NULL, null=True, blank=True, related_name="client")  
     nom = models.CharField(max_length=50)  
@@ -114,16 +113,16 @@ class Client(models.Model):
     lieu_naissance = models.CharField(max_length=50, blank=True, null=True) 
     adresse = models.CharField(max_length=100)  
     numero_identite = models.CharField(max_length=20, unique=True)  
-    date_creation = models.DateTimeField(auto_now_add=True)  
+    created_at = models.DateTimeField(auto_now_add=True)  
     email = models.EmailField(unique=True)  
     type_client_id = models.IntegerField(default=1)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     def generate_unique_id(self):
         while True:
-            client_id = str(secrets.randbelow(10**16)).zfill(16)  # Génère un ID de 16 chiffres
+            client_id = str(secrets.randbelow(10**16)).zfill(16)
             if not Client.objects.filter(client_id=client_id).exists():
-                return client_id  # Retourne l'ID unique trouvé
+                return client_id
 
     def save(self, *args, **kwargs):
         if not self.client_id:
@@ -133,17 +132,17 @@ class Client(models.Model):
     def soft_delete(self):
         self.deleted_at = datetime.now()
         self.save()
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
     def __str__(self):
         return f"{self.prenom} {self.nom}"
 
-
-
 def create_client(sender, instance, **kwargs):
-   
     if instance.status == 'approved' and not Client.objects.filter(user=instance.user).exists():
         Client.objects.create(
             user=instance.user,
+            demande=instance,
             nom=instance.last_name,
             prenom=instance.first_name,
             date_naissance=instance.date_of_birth,
@@ -153,8 +152,8 @@ def create_client(sender, instance, **kwargs):
             type_client_id=1  
         )
 
-
 post_save.connect(create_client, sender=DemandeCompteBancaire)
+
 
 
 
