@@ -4,22 +4,41 @@ from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.forms import ValidationError
 from datetime import datetime
+import secrets
 
 class User(AbstractUser):
     username = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
+
+    def soft_delete(self):
+        self.deleted_at = datetime.now()
+        self.save()
+        
+        if hasattr(self, 'profile'):
+            self.profile.soft_delete()
+        if hasattr(self, 'demandes_comptes'):
+            self.demandes_comptes.soft_delete()
+        if hasattr(self, 'client_profile'):
+            self.client_profile.soft_delete()
 
     def __str__(self):
         return self.username
 
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.SET_NULL)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    deleted_at=models.DateTimeField(null=True,blank=True)
+
+    def soft_delete(self):
+        self.deleted_at=datetime.now()
+        self.save()
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -46,9 +65,8 @@ post_save.connect(save_user_profile, sender=User)
 # Page demande de compte a remplir quand la demande sera accepte creation automatique d'un client
 User = get_user_model() 
 class DemandeCompteBancaire(models.Model):   
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="demandes_comptes")  
-    #ajout de profil
+    demande_id = models.CharField(max_length=12, unique=True, editable=False, blank=True, null=True)
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, related_name="demandes_comptes") 
     first_name = models.CharField(max_length=100)  
     last_name = models.CharField(max_length=100)  
     date_of_birth = models.DateField()  
@@ -60,17 +78,35 @@ class DemandeCompteBancaire(models.Model):
         choices=[('pending', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
         default='pending'
     )
-
     created_at = models.DateTimeField(auto_now_add=True)  
-    #deleted_at = models.NullBooleanField("Null")
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    def generate_unique_demande_id(self):
+        while True:
+            demande_id = str(secrets.randbelow(10**12)).zfill(12)
+            if not DemandeCompteBancaire.objects.filter(demande_id=demande_id).exists():
+               return demande_id
+
+
+    def save(self, *args, **kwargs):
+        if not self.demande_id:
+            self.demande_id = self.generate_unique_demande_id()
+        super().save(*args, **kwargs)
+
+    def soft_delete(self):
+        self.deleted_at = datetime.now()
+        self.save()
 
     def __str__(self):
-        return f"Demande de {self.user.email} - {self.status}"
+        return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.status}"
+
+
 
 
 
 class Client(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="client_profile") 
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, related_name="client_profile") 
+    client_id = models.CharField(max_length=16, unique=True, editable=False, blank=True, null=True)
     demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.SET_NULL, null=True, blank=True, related_name="client")  
     nom = models.CharField(max_length=50)  
     prenom = models.CharField(max_length=50)  
@@ -80,7 +116,23 @@ class Client(models.Model):
     numero_identite = models.CharField(max_length=20, unique=True)  
     date_creation = models.DateTimeField(auto_now_add=True)  
     email = models.EmailField(unique=True)  
-    type_client_id = models.IntegerField(default=1) 
+    type_client_id = models.IntegerField(default=1)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    def generate_unique_id(self):
+        while True:
+            client_id = str(secrets.randbelow(10**16)).zfill(16)  # Génère un ID de 16 chiffres
+            if not Client.objects.filter(client_id=client_id).exists():
+                return client_id  # Retourne l'ID unique trouvé
+
+    def save(self, *args, **kwargs):
+        if not self.client_id:
+            self.client_id = self.generate_unique_id()
+        super().save(*args, **kwargs)  
+
+    def soft_delete(self):
+        self.deleted_at = datetime.now()
+        self.save()
 
     def __str__(self):
         return f"{self.prenom} {self.nom}"
@@ -112,6 +164,8 @@ post_save.connect(create_client, sender=DemandeCompteBancaire)
 
 
 
+
+
 class TypeClient(models.Model):
     type_client_id = models.AutoField(primary_key=True)  # Identifiant du type
     nom_type = models.CharField(max_length=50)  # Nom du type
@@ -127,12 +181,18 @@ class TypeCompte(models.Model):
         return self.nom_type 
 
 
-class Compte(models.Model):
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client
+class Compte(models.Model): 
+    # modele pas utile on peut tout mettre dans client
+    client_id = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client
     type_compte = models.ForeignKey(TypeCompte, on_delete=models.CASCADE)  # Référence au type de compte
     solde = models.DecimalField(max_digits=10, decimal_places=2)  # Solde actuel du compte
     date_ouverture = models.DateField()  # Date d'ouverture du compte
     statut = models.CharField(max_length=20)  # Statut du compte
+    deleted_at=models.DateTimeField(null=True,blank=True)
+
+    def soft_delete(self):
+        self.deleted_at=datetime.now()
+        self.save()
 
     def __str__(self):
         return f"Compte {self.compte_id} - Type: {self.type_compte.nom_type} - Client: {self.client.nom} {self.client.prenom}"
@@ -147,16 +207,31 @@ class TypeDocument(models.Model):
 class Document(models.Model):
     document_id = models.AutoField(primary_key=True)  # Identifiant unique du document
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Référence au user associé au document
-    #ajout de profil
-    #demande
+    #ajout de profil pas besoin on a user
+    demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.CASCADE, blank=True, null=True)
     type_document = models.ForeignKey(TypeDocument, on_delete=models.CASCADE)  # Référence au type de document
     fichier = models.FileField(upload_to='documents/')  # Chemin du fichier stocké
     date_upload = datetime.now()  # Date de téléchargement du document
     statut_verif = models.CharField(max_length=20)  # Statut de vérification
     demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.CASCADE, blank=True, null=True) #hna bash ndiro relation demandecreation ou document
+    deleted_at=models.DateTimeField(null=True,blank=True)
+
+    def soft_delete(self):
+        self.deleted_at=datetime.now()
+        self.save()
+
 
     def __str__(self):
         return f"Document {self.document_id} - Type: {self.type_document.nom_type} - "
+
+
+
+
+
+
+
+
+
 
 class TypeAgent(models.Model):
     type_agent_id = models.AutoField(primary_key=True)  # Identifiant unique du type d'agent
