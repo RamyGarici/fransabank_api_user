@@ -1,9 +1,41 @@
 from django.contrib import admin
+from django.contrib.admin import actions
 from api.models import User, Profile
 from .models import TypeDocument 
 from .models import DemandeCompteBancaire ,Document,Client
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
+from django.contrib.auth.models import Group
+
+class BaseAdmin(admin.ModelAdmin):
+   
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.groups.filter(name="Agent Bancaire").exists():
+            return qs.filter(deleted_at__isnull=True)
+        return qs
+
+    def has_delete_permission(self, request, obj=None):
+        
+        if request.user.groups.filter(name="Agent Bancaire").exists():
+            return False
+        return super().has_delete_permission(request, obj)
+    def has_change_permission(self, request, obj=None):
+        return not request.user.groups.filter(name="Agent Bancaire").exists()
+# Filtres:
+class AgentBancaireFilter(admin.SimpleListFilter):
+    title = "Types d'utilisateur"
+    parameter_name = "agent_bancaire"
+
+    def lookups(self, request, model_admin):
+        return [("yes", "Agents Bancaires"),
+                ("no", "Utilisateurs Classiques")]
+
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.filter(groups__name="Agent Bancaire")
+        return queryset
 
 
 class DeletedAtFilter(admin.SimpleListFilter):
@@ -23,14 +55,39 @@ class DeletedAtFilter(admin.SimpleListFilter):
             return queryset.filter(deleted_at__isnull=False)
         return queryset  
 
-class UserAdmin(admin.ModelAdmin):
-    list_display = ['username', 'email']
-    list_filter = (DeletedAtFilter,)
 
-class ProfileAdmin(admin.ModelAdmin):
+# Models Admin
+class UserAdmin(BaseAdmin):
+    list_display = ['username', 'email','is_staff','is_superuser']
+    list_filter = (DeletedAtFilter, AgentBancaireFilter)
+    
+
+
+
+    @admin.action(description="Promouvoir en Agent Bancaire")
+    def promouvoir_agent(self, request, queryset):
+        agent_group, created = Group.objects.get_or_create(name="Agent Bancaire")
+        for user in queryset:
+            user.groups.add(agent_group)
+        self.message_user(request, "Les utilisateurs sélectionnés sont maintenant des Agents Bancaires.")
+
+    @admin.action(description="Rétrograder en Utilisateur Classique")
+    def retrograder_agent(self, request, queryset):
+        agent_group = Group.objects.filter(name="Agent Bancaire").first()
+        if agent_group:
+            for user in queryset:
+                user.groups.remove(agent_group)
+            self.message_user(request, "Les utilisateurs sélectionnés sont redevenus des utilisateurs normaux.")
+
+    actions = [promouvoir_agent, retrograder_agent,]
+
+class ProfileAdmin(BaseAdmin):
     list_editable=['verified']
     list_display = ['user','first_name','last_name',  'verified']
+    search_fields=('user__username','first_name','last_name')
     list_filter = (DeletedAtFilter,)
+    
+
 
 admin.site.register(User, UserAdmin) 
 admin.site.register(Profile, ProfileAdmin)  
@@ -43,33 +100,23 @@ class DocumentInline(admin.TabularInline):
     readonly_fields = ('fichier_link',)  # Rendre le lien non modifiable
     
 
+    
+
     def fichier_link(self, obj):
         if obj.fichier:
             return format_html('<a href="{}" target="_blank">Voir le document</a>', obj.fichier.url)
         return "Aucun fichier"
 
-    fichier_link.short_description = "Document"  # Correction de l'indentation
-#reglage bash ndiro ghir les demandes li status mashi approuvé
-#@admin.register(DemandeCompteBancaire)
-#class DemandeCompteBancaireAdmin(admin.ModelAdmin):
- #   list_display = ('user', 'status', 'created_at')  # Colonnes affichées
- #   search_fields = ('user__email', 'status')  # Barre de recherche
-  #  list_filter = ('status',)
-   # inlines = [DocumentInline]
-#hadi pour trier la liste des demandes ou ndiro ceux approuvées whdhom ou rejeté whdohom
-#class DemandeCompteBancaireApprouveeAdmin(DemandeCompteBancaireAdmin):
-    #def get_queryset(self, request):
-        #return super().get_queryset(request).filter(status='approved')
+    fichier_link.short_description = "Document"  #==
 
-#admin.site.register(DemandeCompteBancaire, DemandeCompteBancaireAdmin) 
-#admin.site.register(DemandeCompteBancaire, DemandeCompteBancaireApprouveeAdmin)
 @admin.register(DemandeCompteBancaire)
-class DemandeCompteBancaireAdmin(admin.ModelAdmin):
-    list_display = ('user', 'status', 'created_at')  
-    search_fields = ('user__email','user__username', 'status')  
-    list_filter = ('status',)  # Permet de filtrer par statut
+class DemandeCompteBancaireAdmin(BaseAdmin):
+    list_display = ('user','last_name','first_name', 'statut', 'created_at')  
+    search_fields = ('user__email','user__username', 'statut','first_name','last_name')  
+    list_filter = ('statut',DeletedAtFilter)  # Permet de filtrer par statut
     inlines = [DocumentInline]
-    list_filter = (DeletedAtFilter,)
+  
+
 
     # Actions personnalisées pour modifier le statut
     @admin.action(description="Marquer comme approuvé")
@@ -81,9 +128,14 @@ class DemandeCompteBancaireAdmin(admin.ModelAdmin):
         queryset.update(status="Rejetée")
 
     actions = [approuver_demandes, rejeter_demandes]
-@admin.register(Client)  # Décorateur pour simplifier l'enregistrement
-class ClientAdmin(admin.ModelAdmin):
+@admin.register(Client)
+class ClientAdmin(BaseAdmin):
     list_display = ("id", "nom", "email", "created_at")  # Colonnes affichées
     search_fields = ("nom", "email")  # Barre de recherche
     list_filter = (DeletedAtFilter,)  # Filtres dans l'admin
+
+
+
+
+
     

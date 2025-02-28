@@ -73,7 +73,7 @@ class DemandeCompteBancaire(models.Model):
     address = models.TextField()  
     phone_number = models.CharField(max_length=20)  
     numero_identite = models.CharField(max_length=20, unique=True)  
-    status = models.CharField(
+    statut = models.CharField(
         max_length=10, 
         choices=[('pending', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
         default='pending'
@@ -101,7 +101,7 @@ class DemandeCompteBancaire(models.Model):
         self.soft_delete()
 
     def __str__(self):
-        return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.status}"
+        return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.statut}"
 
 class Client(models.Model):
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="client_profile") 
