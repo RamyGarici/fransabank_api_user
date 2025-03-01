@@ -72,7 +72,29 @@ class DemandeCompteBancaire(models.Model):
     date_of_birth = models.DateField()  
     address = models.TextField()  
     phone_number = models.CharField(max_length=20)  
-    numero_identite = models.CharField(max_length=20, unique=True)  
+    numero_identite = models.CharField(max_length=20, unique=True) 
+    Pays_naissance= models.CharField(max_length=20, default="Non spécifié") 
+    Nationalité= models.CharField(max_length=20, default="Non spécifié")
+    Prénom_père=models.CharField(max_length=20, default="Non spécifié")
+    Nom_mère= models.CharField(max_length=20, default="Non spécifié")
+    Prénom_mère = models.CharField(max_length=20, default="Non spécifié")
+    CIVILITE_CHOICES = [
+        ('Mr', 'Monsieur'),
+        ('Mme', 'Madame'),
+    ]
+
+    SITUATION_FAMILIALE_CHOICES = [
+        ('Célibataire', 'Célibataire'),
+        ('Marié', 'Marié'),
+        ('Divorcé', 'Divorcé'),
+        ('Mariée', 'Mariée'),
+        ('Divorcée', 'Divorcée'),
+        ('Veuf', 'Veuf'),
+        ('Veuve', 'Veuve'),
+    ]
+
+    civilité = models.CharField(max_length=5, choices=CIVILITE_CHOICES)
+    situation_familliale = models.CharField(max_length=15, choices=SITUATION_FAMILIALE_CHOICES)
     statut = models.CharField(
         max_length=10, 
         choices=[('pending', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
