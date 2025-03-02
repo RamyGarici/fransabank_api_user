@@ -21,13 +21,16 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['last_name'] = user.profile.last_name
         token['username'] = user.username
         token['email'] = user.email
-        token['verified'] = user.profile.verified
+        token['verified'] = user.profile.verified  
 
         return token
+
 
     def validate(self, attrs):
         data = super().validate(attrs)
         user = self.user  # L'utilisateur authentifié
+        data['email_verified'] = self.user.profile.verified
+        print(f"🔍 Email vérifié pour {self.user.email} : {self.user.profile.verified}")
 
         if not user.profile.verified:
             raise serializers.ValidationError("Vous devez vérifier votre adresse email avant de vous connecter.")

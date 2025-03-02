@@ -12,6 +12,8 @@ from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth import login
+from datetime import datetime
+
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer  
@@ -115,22 +117,33 @@ def verify_email(request, token):
         verification_token.delete()
         return HttpResponse("Lien expiré, demandez un nouvel email de vérification.", status=400)
 
-    
-    verification_token.user.profile.verified = True
-    verification_token.user.profile.save()
+    user = verification_token.user
+    user.profile.verified = True
+    user.is_active = True  # ✅ Active l'utilisateur si nécessaire
+    user.profile.save()
+    user.save()
 
-   
     verification_token.delete()
 
- 
-    return redirect("login")    
+    return redirect("https://b37c-154-121-24-24.ngrok-free.app/api/email-verified/")
+
+   
 class EmailVerificationMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         if request.user.is_authenticated and hasattr(request.user, 'profile'):
-            if not request.user.profile.verified and request.path != reverse("verify_email"):
-                return redirect("verify_email")
+            if not request.user.profile.verified and request.path != reverse("api/verify_email"):
+                return redirect("api/verify_email")
 
         return self.get_response(request)
+def email_verified(request):
+    return render(request, 'email_verified.html')
+
+def check_email_verification(request, email):
+    try:
+        user = User.objects.get(email=email)
+        return JsonResponse({'is_verified': user.is_active})
+    except User.DoesNotExist:
+        return JsonResponse({'error': "Utilisateur non trouvé"}, status=404)

@@ -8,7 +8,7 @@ SECRET_KEY = 'django-insecure-_v9p8s8yrj2#)v8ny!tb+-hal21y))3)9#n(ke&gssga^5v%15
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['6176-154-121-81-135.ngrok-free.app', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['b37c-154-121-24-24.ngrok-free.app', '127.0.0.1', 'localhost']
 
 INSTALLED_APPS = [
     'jazzmin', 
@@ -42,19 +42,18 @@ ROOT_URLCONF = 'auth.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'api', 'templates')],  
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
-                'django.template.context_processors.request',
+                'django.template.context_processors.request',  
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
         },
     },
 ]
-
 WSGI_APPLICATION = 'auth.wsgi.application'
 
 DATABASES = {
@@ -108,15 +107,15 @@ SIMPLE_JWT = {
 }
 
 # Sécurité et CORS
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "https://6176-154-121-81-135.ngrok-free.app",
-    "http://localhost:3000",
-]
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://6176-154-121-81-135.ngrok-free.app",
+    "https://b37c-154-121-24-24.ngrok-free.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:8000",
 ]
+
 
 AUTH_USER_MODEL = 'api.User'
 
@@ -129,8 +128,9 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "rgz270804@gmail.com"
-EMAIL_HOST_PASSWORD = "wkza hafa gzgn ihfm"  # ⚠️ À sécuriser en variable d'environnement
+EMAIL_HOST_PASSWORD = "mpox aare zqsa bwsp" 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Frontend URL
-FRONTEND_URL = "https://6176-154-121-81-135.ngrok-free.app"
+FRONTEND_URL = "https://b37c-154-121-24-24.ngrok-free.app"
+

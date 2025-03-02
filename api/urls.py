@@ -19,4 +19,6 @@ urlpatterns = [
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path('logout/', views.LogoutView.as_view(), name='logout'),
      path("verify-email/<str:token>/", views.verify_email, name="verify_email"),
+     path('email-verified/', views.email_verified, name='email_verified'),
+     path("api/check-email-verification/<str:email>/", views.check_email_verification),
 ]

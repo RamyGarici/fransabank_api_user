@@ -3,7 +3,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.forms import ValidationError
-from datetime import datetime
+from datetime import datetime,timedelta
+from django.utils.timezone import now
 from django.utils import timezone
 import secrets
 import uuid
