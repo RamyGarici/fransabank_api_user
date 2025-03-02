@@ -2,6 +2,8 @@ from api.models import User,Profile,DemandeCompteBancaire,Client
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
+from api.utils import send_verification_email  
+
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -83,3 +85,4 @@ class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client  
         fields = '__all__' 
+    

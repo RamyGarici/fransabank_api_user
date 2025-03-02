@@ -26,15 +26,6 @@ class InfoUserView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)  # Sérialiser l'utilisateur connecté
         return Response(serializer.data)  # Retourner ses infos
-def send_verification_email(user):
-        token,created=EmailVerificationToken.objects.get_or_create(user=user)
-        verification_link = f"{settings.FRONTEND_URL}/verify-email/{token.token}/"
-        send_mail(
-        "Vérifiez votre adresse email",
-        f"Cliquez sur le lien suivant pour vérifier votre email : {verification_link}",
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-    )
 
 class LogoutView(APIView):
     permission_classes=[IsAuthenticated]
