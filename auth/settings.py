@@ -35,6 +35,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'jazzmin', 
     'django.contrib.admin',
+    'django.contrib.sites',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -57,6 +58,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
    
 ]
+SITE_ID = 1
 
 ROOT_URLCONF = 'auth.urls'
 
@@ -174,3 +176,14 @@ AUTH_USER_MODEL = 'api.User'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
+# Email :
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"  
+EMAIL_PORT = 587  
+EMAIL_USE_TLS = True  
+EMAIL_HOST_USER = "rgz270804@gmail.com"  
+EMAIL_HOST_PASSWORD = "abl jdoj irbp kzqu"   #app password
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Email par défaut pour l'envoi
+FRONTEND_URL = "http://localhost:3000"

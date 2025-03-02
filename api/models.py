@@ -6,7 +6,7 @@ from django.forms import ValidationError
 from datetime import datetime
 from django.utils import timezone
 import secrets
-
+import uuid
 class User(AbstractUser):
     username = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
@@ -273,7 +273,16 @@ class Document(models.Model):
 
 
 
+class EmailVerificationToken(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="verification_token")
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def is_expired(self):
+        return self.created_at < now() - timedelta(hours=24) 
 
+    def __str__(self):
+        return f"Token de vérification pour {self.user.email}"
 
 
 
@@ -366,14 +375,6 @@ class Transaction(models.Model):
         return f"Transaction {self.transaction_id} - Compte ID: {self.compte.compte_id} - Montant: {self.montant} - Statut: {self.statut_transaction}"
         
 
-class ActionNFC(models.Model):
-    log_id = models.AutoField(primary_key=True)  # Identifiant unique de l'action
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client concerné
-    date_lecture = models.DateTimeField()  # Date et heure de la lecture NFC
-    statut_lecture = models.CharField(max_length=20)  # Statut de la lecture
-
-    def __str__(self):
-        return f"Action NFC {self.log_id} - {self.statut_lecture} - {self.client.nom} {self.client.prenom}"
 
 
 class ResultatIA(models.Model):

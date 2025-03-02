@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from api.models import User, Profile,Client,DemandeCompteBancaire
+from api.models import User, Profile,Client,DemandeCompteBancaire,EmailVerificationToken
 from api.serializer import UserSerializer, MyTokenObtainPairSerializer, RegisterSerializer,ClientSerializer,DemandeCompteBancaireSerializer
 from rest_framework.decorators import api_view,action
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -9,6 +9,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import DemandeCompteBancaire, Document, TypeDocument
 from django.http import JsonResponse
+from django.core.mail import send_mail
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib.auth import login
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer  
@@ -23,6 +26,15 @@ class InfoUserView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)  # Sérialiser l'utilisateur connecté
         return Response(serializer.data)  # Retourner ses infos
+def send_verification_email(user):
+        token,created=EmailVerificationToken.objects.get_or_create(user=user)
+        verification_link = f"{settings.FRONTEND_URL}/verify-email/{token.token}/"
+        send_mail(
+        "Vérifiez votre adresse email",
+        f"Cliquez sur le lien suivant pour vérifier votre email : {verification_link}",
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+    )
 
 class LogoutView(APIView):
     permission_classes=[IsAuthenticated]
@@ -103,4 +115,31 @@ class ClientViewSet(viewsets.ReadOnlyModelViewSet):
 
   
         return Client.objects.filter(user=user)
+
+
+def verify_email(request, token):
+    verification_token = get_object_or_404(EmailVerificationToken, token=token)
+
+    if verification_token.is_expired():
+        verification_token.delete()
+        return HttpResponse("Lien expiré, demandez un nouvel email de vérification.", status=400)
+
     
+    verification_token.user.profile.verified = True
+    verification_token.user.profile.save()
+
+   
+    verification_token.delete()
+
+ 
+    return redirect("login")    
+class EmailVerificationMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.user.is_authenticated and hasattr(request.user, 'profile'):
+            if not request.user.profile.verified and request.path != reverse("verify_email"):
+                return redirect("verify_email")
+
+        return self.get_response(request)

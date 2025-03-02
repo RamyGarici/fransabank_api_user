@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
-        token = super().get_token(user)  
+        token = super().get_token(user)
 
         token['first_name'] = user.profile.first_name
         token['last_name'] = user.profile.last_name
@@ -21,7 +21,16 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email
         token['verified'] = user.profile.verified
 
-        return token  
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        user = self.user  # L'utilisateur authentifié
+
+        if not user.profile.verified:
+            raise serializers.ValidationError("Vous devez vérifier votre adresse email avant de vous connecter.")
+
+        return data
 
 
 
@@ -51,6 +60,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         user.set_password(validated_data['password'])  # Hash du mot de passe
         user.save()  # Sauvegarder l'utilisateur
+        send_verification_email(user)
         return user
 
  
