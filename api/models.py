@@ -68,16 +68,20 @@ class DemandeCompteBancaire(models.Model):
     demande_id = models.CharField(max_length=12, unique=True, editable=False, blank=True, null=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="demandes_comptes") 
     first_name = models.CharField(max_length=100)  
-    last_name = models.CharField(max_length=100)  
+    last_name = models.CharField(max_length=100) 
+    nom_jeunefille = models.CharField(max_length=100 , blank=True,null=True)
+    lieu_denaissance=models.CharField(max_length=100) 
     date_of_birth = models.DateField()  
     address = models.TextField()  
     phone_number = models.CharField(max_length=20)  
     numero_identite = models.CharField(max_length=20, unique=True) 
-    Pays_naissance= models.CharField(max_length=20, default="Non spécifié") 
-    Nationalité= models.CharField(max_length=20, default="Non spécifié")
-    Prénom_père=models.CharField(max_length=20, default="Non spécifié")
-    Nom_mère= models.CharField(max_length=20, default="Non spécifié")
-    Prénom_mère = models.CharField(max_length=20, default="Non spécifié")
+    Pays_naissance= models.CharField(max_length=20) 
+    Nationalité= models.CharField(max_length=20)
+    Nationalité2= models.CharField(max_length=20,blank=True,null=True)
+    Prénom_pere=models.CharField(max_length=20)
+    Nom_mere= models.CharField(max_length=20)
+    Prénom_mere = models.CharField(max_length=20)
+
     CIVILITE_CHOICES = [
         ('Mr', 'Monsieur'),
         ('Mme', 'Madame'),
@@ -95,7 +99,18 @@ class DemandeCompteBancaire(models.Model):
 
     civilité = models.CharField(max_length=5, choices=CIVILITE_CHOICES)
     situation_familliale = models.CharField(max_length=15, choices=SITUATION_FAMILIALE_CHOICES)
-    statut = models.CharField(
+
+    fonction = models.CharField(max_length=30 , null=True , blank = True)
+    nom_employeur = models.CharField(max_length=100 ,null=True,blank=True)
+
+
+    #fatca natio américaine
+    fatca_nationalitéAM = models.BooleanField(default=False)
+    fatca_residenceAM = models.BooleanField(default=False)
+    fatca_greencardAM = models.BooleanField(default=False)
+    fatca_TIN = models.CharField(max_length=20,null=True,blank=True)
+
+    status = models.CharField(
         max_length=10, 
         choices=[('pending', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
         default='pending'
@@ -109,10 +124,17 @@ class DemandeCompteBancaire(models.Model):
             if not DemandeCompteBancaire.objects.filter(demande_id=demande_id).exists():
                 return demande_id
 
+    def clean(self):
+        if self.Nationalité.lower() == "américaine" or self.Nationalité2.lower() == "américaine" :
+            if not (self.fatca_nationalitéAM or self.fatca_greencardAM or self.fatca_residenceAM or self.fatca_TIN):
+                raise ValidationError("information fatca doivent etre remplis") 
+       
     def save(self, *args, **kwargs):
         if not self.demande_id:
             self.demande_id = self.generate_unique_demande_id()
+        self.clean()
         super().save(*args, **kwargs)
+
 
     def soft_delete(self):
         self.deleted_at = datetime.now()
@@ -123,7 +145,7 @@ class DemandeCompteBancaire(models.Model):
         self.soft_delete()
 
     def __str__(self):
-        return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.statut}"
+        return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.status}"
 
 class Client(models.Model):
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="client_profile") 
@@ -233,7 +255,11 @@ class Document(models.Model):
     type_document = models.ForeignKey(TypeDocument, on_delete=models.CASCADE)  # Référence au type de document
     fichier = models.FileField(upload_to='documents/')  # Chemin du fichier stocké
     date_upload = datetime.now()  # Date de téléchargement du document
-    statut_verif = models.CharField(max_length=20)  # Statut de vérification
+    statut_verif = models.CharField(
+        max_length=15, 
+        choices=[('not verified', 'non vérifié'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
+        default='not verified'
+    )  # Statut de vérification
     demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.CASCADE, blank=True, null=True) #hna bash ndiro relation demandecreation ou document
     deleted_at=models.DateTimeField(null=True,blank=True)
 

@@ -111,9 +111,9 @@ class DocumentInline(admin.TabularInline):
 
 @admin.register(DemandeCompteBancaire)
 class DemandeCompteBancaireAdmin(BaseAdmin):
-    list_display = ('user','last_name','first_name', 'statut', 'created_at')  
-    search_fields = ('user__email','user__username', 'statut','first_name','last_name')  
-    list_filter = ('statut',DeletedAtFilter)  # Permet de filtrer par statut
+    list_display = ('user','last_name','first_name', 'status', 'created_at')  
+    search_fields = ('user__email','user__username', 'status','first_name','last_name')  
+    list_filter = ('status',DeletedAtFilter)  # Permet de filtrer par statut
     inlines = [DocumentInline]
   
 
