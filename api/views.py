@@ -78,7 +78,11 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
         type_document = TypeDocument.objects.filter(type_document_id=type_document_id).first()
 
         if not type_document:
-            return Response({'error': 'Type de document non valide'}, status=400)
+            return Response({'status':False, 'error': 'Type de document non valide'}, status=400)
+        
+        existing_document = Document.objects.filter(demande=demande, type_document=type_document).exists()
+        if existing_document:
+            return Response({'status': False, 'error': 'Ce type de document a déjà été envoyé'}, status=400)
 
         document = Document(
             user=request.user,  # Associer le client
@@ -87,9 +91,10 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
             fichier=request.FILES['document']
         )
         document.save()
-#ajouter status true or false
-#ajouter if pour tester le document s envoie qu une seule fois
-        return Response({'message': 'Document ajouté avec succès !', 'document_url': document.fichier.url})
+
+        return Response({'status':True ,'message': 'Document ajouté avec succès !', 'document_url': document.fichier.url})
+    
+    #def upload_signature
 
 
 
