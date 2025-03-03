@@ -130,7 +130,7 @@ def verify_email(request, token):
 
     verification_token.delete()
 
-    return redirect("https://b37c-154-121-24-24.ngrok-free.app/api/email-verified/")
+    return redirect("https://8620-154-121-84-21.ngrok-free.app/api/email-verified/")
 
    
 class EmailVerificationMiddleware:
