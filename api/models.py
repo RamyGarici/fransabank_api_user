@@ -111,6 +111,9 @@ class DemandeCompteBancaire(models.Model):
     fatca_greencardAM = models.BooleanField(default=False)
     fatca_TIN = models.CharField(max_length=20,null=True,blank=True)
 
+    #pour la signature electronique
+    signature = models.ImageField(upload_to='signatures/', null=True, blank=True)
+
     status = models.CharField(
         max_length=10, 
         choices=[('pending', 'En attente'), ('approved', 'Approuvé'), ('rejected', 'Rejeté')], 
