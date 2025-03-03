@@ -8,7 +8,7 @@ SECRET_KEY = 'django-insecure-_v9p8s8yrj2#)v8ny!tb+-hal21y))3)9#n(ke&gssga^5v%15
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['b37c-154-121-24-24.ngrok-free.app', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['fd0c-41-220-147-108.ngrok-free.app', '127.0.0.1', 'localhost']
 
 INSTALLED_APPS = [
     'jazzmin', 
@@ -111,7 +111,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://b37c-154-121-24-24.ngrok-free.app",
+    "https://fd0c-41-220-147-108.ngrok-free.app",
     "http://localhost:3000",
     "http://127.0.0.1:8000",
 ]
@@ -128,9 +128,9 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "rgz270804@gmail.com"
-EMAIL_HOST_PASSWORD = "mpox aare zqsa bwsp" 
+EMAIL_HOST_PASSWORD = "rmau ozpd ukro nmtr" 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Frontend URL
-FRONTEND_URL = "https://b37c-154-121-24-24.ngrok-free.app"
+FRONTEND_URL = "https://fd0c-41-220-147-108.ngrok-free.app"
 

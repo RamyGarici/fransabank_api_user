@@ -21,9 +21,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['last_name'] = user.profile.last_name
         token['username'] = user.username
         token['email'] = user.email
-        token['verified'] = user.profile.verified  
+        token['verified'] = user.profile.verified
 
         return token
+
 
 
     def validate(self, attrs):

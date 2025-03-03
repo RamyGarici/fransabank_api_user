@@ -8,10 +8,11 @@ from rest_framework.permissions import AllowAny,IsAuthenticated,IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import DemandeCompteBancaire, Document, TypeDocument
-from django.http import JsonResponse
+from django.http import JsonResponse,HttpResponse
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth import login
+
 from datetime import datetime
 
 
@@ -110,22 +111,29 @@ class ClientViewSet(viewsets.ReadOnlyModelViewSet):
         return Client.objects.filter(user=user)
 
 
+
+
 def verify_email(request, token):
     verification_token = get_object_or_404(EmailVerificationToken, token=token)
 
+    # Vérifier si le token a expiré
     if verification_token.is_expired():
         verification_token.delete()
-        return HttpResponse("Lien expiré, demandez un nouvel email de vérification.", status=400)
+        return JsonResponse({"error": "Le lien de vérification a expiré. Demandez un nouvel email."}, status=400)
 
+    # Activer le compte de l'utilisateur
     user = verification_token.user
     user.profile.verified = True
-    user.is_active = True  # ✅ Active l'utilisateur si nécessaire
+    user.is_active = True  # ✅ Autorise la connexion
     user.profile.save()
     user.save()
-
+    
+    # Supprimer le token après vérification
     verification_token.delete()
 
-    return redirect("https://b37c-154-121-24-24.ngrok-free.app/api/email-verified/")
+    # Retourner une réponse JSON pour Flutter
+    return render(request, "email_verified.html")
+
 
    
 class EmailVerificationMiddleware:
@@ -134,8 +142,8 @@ class EmailVerificationMiddleware:
 
     def __call__(self, request):
         if request.user.is_authenticated and hasattr(request.user, 'profile'):
-            if not request.user.profile.verified and request.path != reverse("api/verify_email"):
-                return redirect("api/verify_email")
+            if not request.user.profile.verified and request.path != reverse("api/verify-email"):
+                return redirect("api/verify-email")
 
         return self.get_response(request)
 def email_verified(request):
