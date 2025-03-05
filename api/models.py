@@ -8,26 +8,41 @@ from django.utils.timezone import now
 from django.utils import timezone
 import secrets
 import uuid
+
+from django.contrib.auth.models import AbstractUser, Group, Permission
+
+
 class User(AbstractUser):
-    username = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True)  # Champ email unique
     deleted_at = models.DateTimeField(null=True, blank=True)
+    is_mobile_user = models.BooleanField(default=True)
+    is_employe = models.BooleanField(default=False)  # Ajouter ce champ
+
+    USERNAME_FIELD = 'email'  # Utiliser email comme champ de connexion
+    REQUIRED_FIELDS = ['username']  # username est toujours requis
+
+    def __str__(self):
+        return self.username
+    # Ajouter des related_name uniques pour éviter les conflits
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name='groups',
+        blank=True,
+        help_text='The groups this user belongs to. A user will get all permissions granted to each of their groups.',
+        related_name="custom_user_groups",  # Nom unique pour la relation inverse
+        related_query_name="user",
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        verbose_name='user permissions',
+        blank=True,
+        help_text='Specific permissions for this user.',
+        related_name="custom_user_permissions",  # Nom unique pour la relation inverse
+        related_query_name="user",
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
-
-    def soft_delete(self):
-        self.deleted_at = datetime.now()
-        self.save()
-
-        if hasattr(self, 'profile') and self.profile:
-            self.profile.soft_delete()
-        if hasattr(self, 'demandes_comptes') and self.demandes_comptes:
-            self.demandes_comptes.soft_delete()
-        if hasattr(self, 'client_profile') and self.client_profile:
-            self.client_profile.soft_delete()
-    def delete(self, *args, **kwargs):
-        self.soft_delete()
 
     def __str__(self):
         return self.username
@@ -202,17 +217,6 @@ def create_client(sender, instance, **kwargs):
 
 post_save.connect(create_client, sender=DemandeCompteBancaire)
 
-
-
-
-
-
-
-
-
-
-
-
 class TypeClient(models.Model):
     type_client_id = models.AutoField(primary_key=True)  # Identifiant du type
     nom_type = models.CharField(max_length=50)  # Nom du type
@@ -377,9 +381,6 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"Transaction {self.transaction_id} - Compte ID: {self.compte.compte_id} - Montant: {self.montant} - Statut: {self.statut_transaction}"
-        
-
-
 
 class ResultatIA(models.Model):
     resultat_id = models.AutoField(primary_key=True)  # Identifiant unique du résultat
@@ -392,3 +393,39 @@ class ResultatIA(models.Model):
         return f"Analyse {self.resultat_id} - {self.type_analyse} - {self.resultat} - {self.client.nom} {self.client.prenom}"
 
 
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+class Employe(AbstractUser):
+    ROLE_CHOICES = [
+        ('agent', 'Agent Bancaire'),
+        ('admin', 'Administrateur'),
+    ]
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='agent')
+
+    class Meta:
+        verbose_name = "Employé"  # Nom singulier affiché dans l'interface d'administration
+        verbose_name_plural = "Employés"  # Nom pluriel affiché dans l'interface d'administration
+
+    def __str__(self):
+        return self.username
+    # Ajouter des related_name uniques pour éviter les conflits
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name='groups',
+        blank=True,
+        help_text='The groups this employe belongs to. An employe will get all permissions granted to each of their groups.',
+        related_name="custom_employe_groups",  # Nom unique pour la relation inverse
+        related_query_name="employe",
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        verbose_name='user permissions',
+        blank=True,
+        help_text='Specific permissions for this employe.',
+        related_name="custom_employe_permissions",  # Nom unique pour la relation inverse
+        related_query_name="employe",
+    )
+
+    def __str__(self):
+        return self.username
