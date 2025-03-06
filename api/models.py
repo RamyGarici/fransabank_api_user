@@ -165,10 +165,9 @@ class DemandeCompteBancaire(models.Model):
         return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.status}"
 
 class Client(models.Model):
-    id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="client_profile") 
-    #client_id = models.IntegerField(max_length=16, unique=True, editable=False, blank=True, null=True)
-    demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.SET_NULL, null=True, blank=True, related_name="client")  
+    client_id = models.CharField(primary_key=True, max_length=16, unique=True, editable=False, blank=True)  # Utilisation correcte pour une valeur générée
+    demande = models.ForeignKey('DemandeCompteBancaire', on_delete=models.SET_NULL, null=True, blank=True, related_name="client")  
     nom = models.CharField(max_length=50)  
     prenom = models.CharField(max_length=50)  
     date_naissance = models.DateField()  
@@ -180,11 +179,11 @@ class Client(models.Model):
     type_client_id = models.IntegerField(default=1)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
-    #def generate_unique_id(self):
-    #    while True:
-     #       client_id = str(secrets.randbelow(10**16)).zfill(16)
-      #      if not Client.objects.filter(client_id=client_id).exists():
-        #        return client_id
+    def generate_unique_id(self):
+        while True:
+            client_id = str(secrets.randbelow(10**16)).zfill(16)  # Assurer 16 chiffres
+            if not Client.objects.filter(client_id=client_id).exists():
+                return client_id
 
     def save(self, *args, **kwargs):
         if not self.client_id:
@@ -194,6 +193,7 @@ class Client(models.Model):
     def soft_delete(self):
         self.deleted_at = datetime.now()
         self.save()
+
     def delete(self, *args, **kwargs):
         self.soft_delete()
 
@@ -203,6 +203,7 @@ class Client(models.Model):
 def create_client(sender, instance, **kwargs):
     if instance.status == 'approved' and not Client.objects.filter(user=instance.user).exists():
         Client.objects.create(
+            client_id=Client().generate_unique_id(),
             user=instance.user,
             demande=instance,
             nom=instance.last_name,
@@ -235,13 +236,12 @@ class TypeCompte(models.Model):
 
 
 class Compte(models.Model): 
-    # modele pas utile on peut tout mettre dans client
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client
-    type_compte = models.ForeignKey(TypeCompte, on_delete=models.CASCADE)  # Référence au type de compte
-    solde = models.DecimalField(max_digits=10, decimal_places=2)  # Solde actuel du compte
-    date_ouverture = models.DateField()  # Date d'ouverture du compte
-    statut = models.CharField(max_length=20)  # Statut du compte
-    deleted_at=models.DateTimeField(null=True,blank=True)
+    id_client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence correcte
+    type_compte = models.ForeignKey('TypeCompte', on_delete=models.CASCADE)  
+    solde = models.DecimalField(max_digits=10, decimal_places=2)  
+    date_ouverture = models.DateField()  
+    statut = models.CharField(max_length=20)  
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     def soft_delete(self):
         self.deleted_at=datetime.now()
