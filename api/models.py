@@ -165,8 +165,9 @@ class DemandeCompteBancaire(models.Model):
         return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.status}"
 
 class Client(models.Model):
+    id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="client_profile") 
-    client_id = models.CharField(max_length=16, unique=True, editable=False, blank=True, null=True)
+    #client_id = models.IntegerField(max_length=16, unique=True, editable=False, blank=True, null=True)
     demande = models.ForeignKey(DemandeCompteBancaire, on_delete=models.SET_NULL, null=True, blank=True, related_name="client")  
     nom = models.CharField(max_length=50)  
     prenom = models.CharField(max_length=50)  
@@ -179,11 +180,11 @@ class Client(models.Model):
     type_client_id = models.IntegerField(default=1)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
-    def generate_unique_id(self):
-        while True:
-            client_id = str(secrets.randbelow(10**16)).zfill(16)
-            if not Client.objects.filter(client_id=client_id).exists():
-                return client_id
+    #def generate_unique_id(self):
+    #    while True:
+     #       client_id = str(secrets.randbelow(10**16)).zfill(16)
+      #      if not Client.objects.filter(client_id=client_id).exists():
+        #        return client_id
 
     def save(self, *args, **kwargs):
         if not self.client_id:
@@ -235,7 +236,7 @@ class TypeCompte(models.Model):
 
 class Compte(models.Model): 
     # modele pas utile on peut tout mettre dans client
-    client_id = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence au client
     type_compte = models.ForeignKey(TypeCompte, on_delete=models.CASCADE)  # Référence au type de compte
     solde = models.DecimalField(max_digits=10, decimal_places=2)  # Solde actuel du compte
     date_ouverture = models.DateField()  # Date d'ouverture du compte
