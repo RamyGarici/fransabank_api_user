@@ -18,6 +18,7 @@ urlpatterns = [
     path("verify-email/<str:token>/", views.verify_email, name="verify_email"),
     path("email_verified/", views.email_verified, name="email_verified"),
     path("check-email-verification/<str:email>/", views.check_email_verification, name="check_email_verification"),
+    #path("api/", include(router.urls)),   corriger le "" pour le lien soit /api/client et non pas /api/api/client
     path("api/", include(router.urls)),  # API versionnée proprement
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
 ]

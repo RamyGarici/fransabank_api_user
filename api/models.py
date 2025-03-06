@@ -65,6 +65,21 @@ post_save.connect(create_user_profile, sender=User)
 post_save.connect(save_user_profile, sender=User)
 
 User = get_user_model() 
+
+class TypeClient(models.Model):  
+  TYPE_CHOICES = [
+        (1, 'Étudiant'),
+        (2, 'Commerçant'),
+        (3, 'Professionnel'),
+        (4, 'Personnel'),
+        (5, 'Jeune/Enfant'),
+    ]
+  id = models.AutoField(primary_key=True) 
+  nom_type = models.CharField(max_length=50, unique=True)
+
+  def __str__(self):
+        return self.nom_type
+
 class DemandeCompteBancaire(models.Model):   
     demande_id = models.CharField(max_length=12, unique=True, editable=False, blank=True, null=True)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="demandes_comptes") 
@@ -103,6 +118,7 @@ class DemandeCompteBancaire(models.Model):
 
     fonction = models.CharField(max_length=30 , null=True , blank = True)
     nom_employeur = models.CharField(max_length=100 ,null=True,blank=True)
+    type_client = models.ForeignKey(TypeClient, on_delete=models.SET_NULL, null=True, blank=True)
 
 
     #fatca natio américaine
@@ -208,14 +224,6 @@ post_save.connect(create_client, sender=DemandeCompteBancaire)
 
 
 
-
-
-class TypeClient(models.Model):
-    type_client_id = models.AutoField(primary_key=True)  # Identifiant du type
-    nom_type = models.CharField(max_length=50)  # Nom du type
-
-    def __str__(self):
-        return self.nom_type
 
 class TypeCompte(models.Model):
     type_compte_id = models.AutoField(primary_key=True)  # Identifiant unique du type de compte
@@ -362,7 +370,7 @@ class TypeTransaction(models.Model):
 
 class Transaction(models.Model):
     transaction_id = models.AutoField(primary_key=True)  # Identifiant unique de la transaction
-    compte = models.ForeignKey(Compte, on_delete=models.CASCADE)  # Référence au compte
+    compte = models.ForeignKey(Compte, on_delete=models.CASCADE,null=True)  # Référence au compte
     type_transaction = models.ForeignKey(TypeTransaction, on_delete=models.CASCADE)  # Référence au type de transaction
     montant = models.IntegerField()  # Montant de la transaction (minimum 500 DA)
     date_transaction = models.DateTimeField(auto_now_add=True)  # Date et heure de la transaction

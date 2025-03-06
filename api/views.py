@@ -79,9 +79,18 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
         demande = self.get_object()
         type_document_id = request.POST.get('type_document_id')
         type_document = TypeDocument.objects.filter(type_document_id=type_document_id).first()
+        
+        existing_document = Document.objects.filter(
+        user=request.user, demande=demande, type_document=type_document).exists()
+
 
         if not type_document:
             return Response({'error': 'Type de document non valide'}, status=400)
+        
+        
+        if existing_document:
+          return Response({'status': False, 'error': 'Ce document a déjà été envoyé.'}, status=400)
+
 
         document = Document(
             user=request.user,  # Associer le client
@@ -89,14 +98,18 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
             type_document=type_document,  # Spécifier le type de document
             fichier=request.FILES['document']
         )
+
+        #pour verifier que on upload pas un document vide
+        if not document.fichier:
+          return Response({'status': False, 'error': 'Aucun fichier fourni.'}, status=400)
         document.save()
 #ajouter status true or false
 #ajouter if pour tester le document s envoie qu une seule fois
-        return Response({'message': 'Document ajouté avec succès !', 'document_url': document.fichier.url})
+        return Response({'stat':True ,'message': 'Document ajouté avec succès !', 'document_url': document.fichier.url})
 
 
 
-class ClientViewSet(viewsets.ReadOnlyModelViewSet):  
+class ClientViewSet(viewsets.ModelViewSet):  
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
 

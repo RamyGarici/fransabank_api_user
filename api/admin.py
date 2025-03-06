@@ -130,7 +130,7 @@ class DemandeCompteBancaireAdmin(BaseAdmin):
     actions = [approuver_demandes, rejeter_demandes]
 @admin.register(Client)
 class ClientAdmin(BaseAdmin):
-    list_display = ("id", "nom", "email", "created_at")  # Colonnes affichées
+    list_display = ("client_id", "nom", "email", "created_at")  # Colonnes affichées
     search_fields = ("nom", "email")  # Barre de recherche
     list_filter = (DeletedAtFilter,)  # Filtres dans l'admin
 
