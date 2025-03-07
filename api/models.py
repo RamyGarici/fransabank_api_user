@@ -26,12 +26,12 @@ class User(AbstractUser):
             self.demandes_comptes.soft_delete()
         if hasattr(self, 'client_profile') and self.client_profile:
             self.client_profile.soft_delete()
+
     def delete(self, *args, **kwargs):
         self.soft_delete()
 
     def __str__(self):
         return self.username
-
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True)
     first_name = models.CharField(max_length=100)
@@ -398,3 +398,14 @@ class ResultatIA(models.Model):
         return f"Analyse {self.resultat_id} - {self.type_analyse} - {self.resultat} - {self.client.nom} {self.client.prenom}"
 
 
+class Employe(models.Model):
+    ROLE_CHOICES = [
+        ('agent', 'Agent Bancaire'),
+        ('admin', 'Administrateur'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employe_profile")
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='agent')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_role_display()}"

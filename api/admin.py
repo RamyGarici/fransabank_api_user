@@ -1,68 +1,30 @@
 from django.contrib import admin
-from django.contrib.admin import actions
-from api.models import User, Profile
-from .models import TypeDocument 
-from .models import DemandeCompteBancaire ,Document,Client
+from django.contrib.auth.models import Group
+from django.contrib.admin.sites import AlreadyRegistered
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
-from django.contrib.auth.models import Group
+from api.models import User, Profile, TypeDocument, DemandeCompteBancaire, Document, Client, Employe
 
 class BaseAdmin(admin.ModelAdmin):
-   
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.groups.filter(name="Agent Bancaire").exists():
+        if request.user.is_staff:
             return qs.filter(deleted_at__isnull=True)
         return qs
 
     def has_delete_permission(self, request, obj=None):
-        
-        if request.user.groups.filter(name="Agent Bancaire").exists():
+        if request.user.is_staff:
             return False
         return super().has_delete_permission(request, obj)
+
     def has_change_permission(self, request, obj=None):
-        return not request.user.groups.filter(name="Agent Bancaire").exists()
-# Filtres:
-class AgentBancaireFilter(admin.SimpleListFilter):
-    title = "Types d'utilisateur"
-    parameter_name = "agent_bancaire"
+        if request.user.is_staff:
+            return False
+        return super().has_change_permission(request, obj)
 
-    def lookups(self, request, model_admin):
-        return [("yes", "Agents Bancaires"),
-                ("no", "Utilisateurs Classiques")]
-
-
-    def queryset(self, request, queryset):
-        if self.value() == "yes":
-            return queryset.filter(groups__name="Agent Bancaire")
-        return queryset
-
-
-class DeletedAtFilter(admin.SimpleListFilter):
-    title = _("Statut de suppression")  
-    parameter_name = "deleted_at"
-
-    def lookups(self, request, model_admin):
-        return [
-            ("active", _("Actifs (non supprimés)")),
-            ("deleted", _("Supprimés")),
-        ]
-
-    def queryset(self, request, queryset):
-        if self.value() == "active":
-            return queryset.filter(deleted_at__isnull=True)
-        if self.value() == "deleted":
-            return queryset.filter(deleted_at__isnull=False)
-        return queryset  
-
-
-# Models Admin
 class UserAdmin(BaseAdmin):
-    list_display = ['username', 'email','is_staff','is_superuser']
-    list_filter = (DeletedAtFilter, AgentBancaireFilter)
-    
-
-
+    list_display = ['username', 'email', 'is_staff', 'is_superuser']
+    list_filter = ['is_staff']
 
     @admin.action(description="Promouvoir en Agent Bancaire")
     def promouvoir_agent(self, request, queryset):
@@ -79,63 +41,69 @@ class UserAdmin(BaseAdmin):
                 user.groups.remove(agent_group)
             self.message_user(request, "Les utilisateurs sélectionnés sont redevenus des utilisateurs normaux.")
 
-    actions = [promouvoir_agent, retrograder_agent,]
+    actions = [promouvoir_agent, retrograder_agent]
+
+class EmployeAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role')
+    list_filter = ('role',)
 
 class ProfileAdmin(BaseAdmin):
-    list_editable=['verified']
-    list_display = ['user','first_name','last_name',  'verified']
-    search_fields=('user__username','first_name','last_name')
-    list_filter = (DeletedAtFilter,)
-    
+    list_display = ['user', 'get_date_of_birth', 'get_phone_number']
+    search_fields = ('user__username', 'user__date_of_birth', 'user__phone_number')
+
+    def get_date_of_birth(self, obj):
+        return obj.date_of_birth if hasattr(obj, 'date_of_birth') else None
+    get_date_of_birth.short_description = "Date de naissance"
+
+    def get_phone_number(self, obj):
+        return obj.phone_number if hasattr(obj, 'phone_number') else None
+    get_phone_number.short_description = "Numéro de téléphone"
+
+class DemandeCompteBancaireAdmin(admin.ModelAdmin):
+    list_display = ('get_clients', 'status', 'created_at')
+    list_filter = ('status',)
+
+    def get_clients(self, obj):
+        return ", ".join([client.user.username for client in obj.client.all()]) if obj.client.exists() else "Aucun client"
+    get_clients.short_description = "Clients"
 
 
-admin.site.register(User, UserAdmin) 
-admin.site.register(Profile, ProfileAdmin)  
-admin.site.register(TypeDocument)
+class ClientAdmin(admin.ModelAdmin):
+    list_display = ('user', 'get_account_number', 'get_balance')
+
+    def get_account_number(self, obj):
+        return obj.account_number if hasattr(obj, 'account_number') else None
+    get_account_number.short_description = "Numéro de compte"
+
+    def get_balance(self, obj):
+        return obj.balance if hasattr(obj, 'balance') else None
+    get_balance.short_description = "Solde"
+
+# Enregistrement des modèles avec gestion d'erreur AlreadyRegistered
+models = [
+    (Employe, EmployeAdmin),
+    (User, UserAdmin),
+    (Profile, ProfileAdmin),
+    (TypeDocument, None),
+    (DemandeCompteBancaire, DemandeCompteBancaireAdmin),
+    (Client, ClientAdmin),
+]
+
+for model, admin_class in models:
+    try:
+        admin.site.register(model, admin_class)
+    except AlreadyRegistered:
+        pass  # Ignore l'erreur si le modèle est déjà enregistré
 
 class DocumentInline(admin.TabularInline):  
     model = Document
-    extra = 1  # Nombre de champs vides pour ajouter de nouveaux documents
-    fields = ('type_document', 'fichier_link', 'statut_verif')  # Utiliser fichier_link au lieu de fichier
-    readonly_fields = ('fichier_link',)  # Rendre le lien non modifiable
-    
-
-    
+    extra = 1  
+    fields = ('type_document', 'fichier_link', 'statut_verif')  
+    readonly_fields = ('fichier_link',)  
 
     def fichier_link(self, obj):
         if obj.fichier:
             return format_html('<a href="{}" target="_blank">Voir le document</a>', obj.fichier.url)
         return "Aucun fichier"
 
-    fichier_link.short_description = "Document"  #==
-
-@admin.register(DemandeCompteBancaire)
-class DemandeCompteBancaireAdmin(BaseAdmin):
-    list_display = ('user','last_name','first_name', 'status', 'created_at')  
-    search_fields = ('user__email','user__username', 'status','first_name','last_name')  
-    list_filter = ('status',DeletedAtFilter)  # Permet de filtrer par statut
-    inlines = [DocumentInline]
-  
-
-
-    # Actions personnalisées pour modifier le statut
-    @admin.action(description="Marquer comme approuvé")
-    def approuver_demandes(self, request, queryset):
-        queryset.update(status="Approuvée")
-
-    @admin.action(description="Marquer comme rejeté")
-    def rejeter_demandes(self, request, queryset):
-        queryset.update(status="Rejetée")
-
-    actions = [approuver_demandes, rejeter_demandes]
-@admin.register(Client)
-class ClientAdmin(BaseAdmin):
-    list_display = ("client_id", "nom", "email", "created_at")  # Colonnes affichées
-    search_fields = ("nom", "email")  # Barre de recherche
-    list_filter = (DeletedAtFilter,)  # Filtres dans l'admin
-
-
-
-
-
-    
+    fichier_link.short_description = "Document"
