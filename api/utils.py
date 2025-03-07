@@ -8,7 +8,7 @@ def send_verification_email(user):
     
     # Définir le lien de vérification (choisir selon besoin)
     if hasattr(settings, "FRONTEND_URL"):  # Si tu veux que Flutter gère la vérification
-        verification_link = f"{settings.FRONTEND_URL}/verify-email/{token.token}/"
+        verification_link = f"{settings.FRONTEND_URL}/api/verify-email/{token.token}/"
     else:  # Si Django gère directement la vérification
         verification_link = f"http://127.0.0.1:8000/api/verify-email/{token.token}/"
 
