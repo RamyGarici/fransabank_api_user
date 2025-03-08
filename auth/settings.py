@@ -8,7 +8,7 @@ SECRET_KEY = 'django-insecure-_v9p8s8yrj2#)v8ny!tb+-hal21y))3)9#n(ke&gssga^5v%15
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['7944-105-98-93-35.ngrok-free.app', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['d97b-105-98-117-53.ngrok-free.app', '127.0.0.1', 'localhost']
 
 INSTALLED_APPS = [
     'jazzmin', 
@@ -89,6 +89,12 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ),
 }
+
+AUTHENTICATION_BACKENDS = [
+    'api.authentication.ClientBackend',  # Remplace par le bon chemin
+    'django.contrib.auth.backends.ModelBackend',  # Garde le backend par défaut
+]
+
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),

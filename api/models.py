@@ -105,12 +105,9 @@ class DemandeCompteBancaire(models.Model):
 
     SITUATION_FAMILIALE_CHOICES = [
         ('Célibataire', 'Célibataire'),
-        ('Marié', 'Marié'),
-        ('Divorcé', 'Divorcé'),
-        ('Mariée', 'Mariée'),
-        ('Divorcée', 'Divorcée'),
-        ('Veuf', 'Veuf'),
-        ('Veuve', 'Veuve'),
+        ('Marié(e)', 'Marié(e)'),
+        ('Divorcé(e)', 'Divorcé(e)'),
+        ('Veuf/veuve', 'Veuf/veuve'),
     ]
 
     civilité = models.CharField(max_length=5, choices=CIVILITE_CHOICES)
@@ -179,17 +176,31 @@ class Client(models.Model):
     type_client_id = models.IntegerField(default=1)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
+
+    password_client = models.CharField(max_length=128, blank=True, null=True)
+
+    def set_password_client(self, raw_password):
+        """Définit le mot de passe client avec un hash sécurisé."""
+        self.password_client = make_password(raw_password)
+
+    def check_password_client(self, raw_password):
+        """Vérifie si le mot de passe client est correct."""
+        return check_password(raw_password, self.password_client)
+
     def generate_unique_id(self):
         while True:
             client_id = str(secrets.randbelow(10**16)).zfill(16)  # Assurer 16 chiffres
             if not Client.objects.filter(client_id=client_id).exists():
                 return client_id
 
+
+
     def save(self, *args, **kwargs):
         if not self.client_id:
             self.client_id = self.generate_unique_id()
         super().save(*args, **kwargs)  
-
+        if not self.password_client and self.user and self.user.password:
+            self.password_client = self.user.password
     def soft_delete(self):
         self.deleted_at = datetime.now()
         self.save()
@@ -212,9 +223,11 @@ def create_client(sender, instance, **kwargs):
             adresse=instance.address,
             numero_identite=instance.numero_identite,
             email=instance.user.email,
-            type_client_id=1  
+            type_client_id=1,
+            password_client = instance.user.password
         )
-
+        client.password_client = instance.user.password
+        client.save()
 post_save.connect(create_client, sender=DemandeCompteBancaire)
 
 

@@ -3,15 +3,15 @@ from api.models import User, Profile,Client,DemandeCompteBancaire,EmailVerificat
 from api.serializer import UserSerializer, MyTokenObtainPairSerializer, RegisterSerializer,ClientSerializer,DemandeCompteBancaireSerializer
 from rest_framework.decorators import api_view,action
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework import generics,viewsets
+from rest_framework import generics,viewsets,status
 from rest_framework.permissions import AllowAny,IsAuthenticated,IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import DemandeCompteBancaire, Document, TypeDocument
+from .models import DemandeCompteBancaire, Document, TypeDocument,Client
 from django.http import JsonResponse,HttpResponse
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth import login
+from django.contrib.auth import login,authenticate
 from datetime import datetime
 from .serializer import UserSerializer, MyTokenObtainPairSerializer, RegisterSerializer, ClientSerializer, DemandeCompteBancaireSerializer, EmployeSerializer
 
@@ -110,7 +110,22 @@ class ClientViewSet(viewsets.ModelViewSet):
         if user.is_staff:  # Seuls les administrateurs peuvent voir tous les clients
             return Client.objects.all()
         return Client.objects.filter(user=user)
+    
+    @action(detail=False, methods=["post"], url_path="login")
+    def clientsec(self, request):
 
+     client_id = request.data.get("client_id")
+     password = request.data.get("password")
+
+     if not client_id or not password:
+         return Response({"error": "Veuillez fournir un identifiant client et un mot de passe."}, status=status.HTTP_400_BAD_REQUEST)
+
+     user = authenticate(request, client_id=client_id, password=password)  # Utilise le backend personnalisé
+     if user is not None:
+         login(request, user)
+         return Response({"message": "Connexion réussie", "client_id": client_id}, status=status.HTTP_200_OK)
+     else:
+         return Response({"error": "Identifiant ou mot de passe incorrect."}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 def verify_email(request, token):

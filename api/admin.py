@@ -69,7 +69,7 @@ class DemandeCompteBancaireAdmin(admin.ModelAdmin):
 
 
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ('user', 'get_account_number', 'get_balance')
+    list_display = ('user', 'client_id', 'get_balance')
 
     def get_account_number(self, obj):
         return obj.account_number if hasattr(obj, 'account_number') else None
