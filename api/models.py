@@ -82,7 +82,7 @@ class TypeClient(models.Model):
 
 class DemandeCompteBancaire(models.Model):   
     demande_id = models.CharField(max_length=12, unique=True, editable=False, blank=True, null=True)
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="demandes_comptes") 
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="demandes_comptes")
     first_name = models.CharField(max_length=100)  
     last_name = models.CharField(max_length=100) 
     nom_jeunefille = models.CharField(max_length=100 , blank=True,null=True)
@@ -164,7 +164,7 @@ class DemandeCompteBancaire(models.Model):
         return f"Demande de {self.user.email if self.user else 'Inconnu'} - {self.status}"
 
 class Client(models.Model):
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, related_name="client_profile") 
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="client_profile") 
     client_id = models.CharField(primary_key=True, max_length=16, unique=True, editable=False, blank=True)  # Utilisation correcte pour une valeur générée
     demande = models.ForeignKey('DemandeCompteBancaire', on_delete=models.SET_NULL, null=True, blank=True, related_name="client")  
     nom = models.CharField(max_length=50)  
@@ -299,7 +299,7 @@ class Document(models.Model):
 
 
 class EmailVerificationToken(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="verification_token")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="verification_token")
     token = models.UUIDField(default=uuid.uuid4, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     

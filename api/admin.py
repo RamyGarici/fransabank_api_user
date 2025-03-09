@@ -73,7 +73,7 @@ class ProfileAdmin(BaseAdmin):
     get_phone_number.short_description = "Numéro de téléphone"
 
 class DemandeCompteBancaireAdmin(admin.ModelAdmin):
-    list_display = ('get_clients', 'status', 'created_at')
+    list_display = ('user', 'status', 'created_at')
     list_filter = ('status',)
     inlines = [DocumentInline]
 

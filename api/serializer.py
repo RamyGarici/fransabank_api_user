@@ -77,12 +77,13 @@ class DemandeCompteBancaireSerializer(serializers.ModelSerializer):
         extra_kwargs = {
            "user": {"read_only": True}}
 
+    #def validate(self, data):
+     #   user = self.context['request'].user
+      #  if DemandeCompteBancaire.objects.filter(user=user, status__in=['pending', 'approved']).exists():
+       #     raise serializers.ValidationError("Vous avez déjà une demande en cours.")
+        #return data
     def validate(self, data):
-        user = self.context['request'].user
-        if DemandeCompteBancaire.objects.filter(user=user, status__in=['pending', 'approved']).exists():
-            raise serializers.ValidationError("Vous avez déjà une demande en cours.")
-        return data
-
+       return data 
 
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:
