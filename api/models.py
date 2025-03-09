@@ -97,7 +97,9 @@ class DemandeCompteBancaire(models.Model):
     Prénom_pere=models.CharField(max_length=20)
     Nom_mere= models.CharField(max_length=20)
     Prénom_mere = models.CharField(max_length=20)
-
+    
+    photo = models.ImageField(upload_to='photo/',blank=True,null=True) 
+    signature = models.ImageField(upload_to='signatures/',blank=True,null=True) 
     CIVILITE_CHOICES = [
         ('Mr', 'Monsieur'),
         ('Mme', 'Madame'),

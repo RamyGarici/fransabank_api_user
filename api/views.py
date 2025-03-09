@@ -100,6 +100,41 @@ class DemandeCompteBancaireViewSet(viewsets.ModelViewSet):
         document.save()
 
         return Response({'stat': True, 'message': 'Document ajouté avec succès !', 'document_url': document.fichier.url})
+    
+    @action(detail=True, methods=['post'])
+    def upload_photo(self, request, pk=None):
+        demande = self.get_object()
+
+        # Vérifier si un fichier est fourni
+        if 'photo' not in request.FILES:
+            return Response({'status': False, 'error': 'Aucun fichier fourni.'}, status=400)
+
+        # Ajouter le fichier au champ signature de la demande
+        demande.photo = request.FILES['photo']
+        demande.save()
+
+        return Response({
+            'status': True,
+            'message': 'photo ajoutée avec succès !',
+            'photo_url': demande.photo.url  # Retourne l'URL du fichier enregistré
+        })
+    @action(detail=True, methods=['post'])
+    def upload_signature(self, request, pk=None):
+        demande = self.get_object()
+
+        # Vérifier si un fichier est fourni
+        if 'signature' not in request.FILES:
+            return Response({'status': False, 'error': 'Aucun fichier fourni.'}, status=400)
+
+        # Ajouter le fichier au champ signature de la demande
+        demande.signature = request.FILES['signature']
+        demande.save()
+
+        return Response({
+            'status': True,
+            'message': 'Signature ajoutée avec succès !',
+            'signature_url': demande.signature.url  # Retourne l'URL du fichier enregistré
+        })
 
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()

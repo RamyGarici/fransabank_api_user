@@ -47,6 +47,19 @@ class EmployeAdmin(admin.ModelAdmin):
     list_display = ('user', 'role')
     list_filter = ('role',)
 
+class DocumentInline(admin.TabularInline):  
+    model = Document
+    extra = 1  
+    fields = ('type_document', 'fichier_link', 'statut_verif')  
+    readonly_fields = ('fichier_link',)  
+
+    def fichier_link(self, obj):
+        if obj.fichier:
+            return format_html('<a href="{}" target="_blank">Voir le document</a>', obj.fichier.url)
+        return "Aucun fichier"
+
+    fichier_link.short_description = "Document"
+
 class ProfileAdmin(BaseAdmin):
     list_display = ['user', 'get_date_of_birth', 'get_phone_number']
     search_fields = ('user__username', 'user__date_of_birth', 'user__phone_number')
@@ -62,6 +75,7 @@ class ProfileAdmin(BaseAdmin):
 class DemandeCompteBancaireAdmin(admin.ModelAdmin):
     list_display = ('get_clients', 'status', 'created_at')
     list_filter = ('status',)
+    inlines = [DocumentInline]
 
     def get_clients(self, obj):
         return ", ".join([client.user.username for client in obj.client.all()]) if obj.client.exists() else "Aucun client"
@@ -95,15 +109,3 @@ for model, admin_class in models:
     except AlreadyRegistered:
         pass  # Ignore l'erreur si le modèle est déjà enregistré
 
-class DocumentInline(admin.TabularInline):  
-    model = Document
-    extra = 1  
-    fields = ('type_document', 'fichier_link', 'statut_verif')  
-    readonly_fields = ('fichier_link',)  
-
-    def fichier_link(self, obj):
-        if obj.fichier:
-            return format_html('<a href="{}" target="_blank">Voir le document</a>', obj.fichier.url)
-        return "Aucun fichier"
-
-    fichier_link.short_description = "Document"
