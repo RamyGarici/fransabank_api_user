@@ -63,7 +63,13 @@ class DocumentInline(admin.TabularInline):
 class ProfileAdmin(BaseAdmin):
     list_display = ['user', 'get_date_of_birth', 'get_phone_number']
     search_fields = ('user__username', 'user__date_of_birth', 'user__phone_number')
-
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.filter(user__is_superuser=False)
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.filter(user__is_staff=False)
+    
     def get_date_of_birth(self, obj):
         return obj.date_of_birth if hasattr(obj, 'date_of_birth') else None
     get_date_of_birth.short_description = "Date de naissance"
@@ -84,7 +90,6 @@ class DemandeCompteBancaireAdmin(admin.ModelAdmin):
 
 class ClientAdmin(admin.ModelAdmin):
     list_display = ('user', 'client_id', 'get_balance')
-
     def get_account_number(self, obj):
         return obj.account_number if hasattr(obj, 'account_number') else None
     get_account_number.short_description = "Numéro de compte"

@@ -88,18 +88,18 @@ class DemandeCompteBancaire(models.Model):
     nom_jeunefille = models.CharField(max_length=100 , blank=True,null=True)
     lieu_denaissance=models.CharField(max_length=100) 
     date_of_birth = models.DateField()  
-    address = models.TextField()  
+    address = models.TextField()  #
     phone_number = models.CharField(max_length=20)  
     numero_identite = models.CharField(max_length=20, unique=True) 
-    Pays_naissance= models.CharField(max_length=20) 
+    Pays_naissance= models.CharField(max_length=20) # 
     Nationalité= models.CharField(max_length=20)
     Nationalité2= models.CharField(max_length=20,blank=True,null=True)
     Prénom_pere=models.CharField(max_length=20)
     Nom_mere= models.CharField(max_length=20)
     Prénom_mere = models.CharField(max_length=20)
     
-    photo = models.ImageField(upload_to='photo/',blank=True,null=True) 
-    signature = models.ImageField(upload_to='signatures/',blank=True,null=True) 
+    photo = models.ImageField(upload_to='photo/',blank=True,null=True) #
+    signature = models.ImageField(upload_to='signatures/',blank=True,null=True) #
     CIVILITE_CHOICES = [
         ('Mr', 'Monsieur'),
         ('Mme', 'Madame'),
@@ -116,8 +116,8 @@ class DemandeCompteBancaire(models.Model):
     situation_familliale = models.CharField(max_length=15, choices=SITUATION_FAMILIALE_CHOICES)
 
     fonction = models.CharField(max_length=30 , null=True , blank = True)
-    nom_employeur = models.CharField(max_length=100 ,null=True,blank=True)
-    type_client = models.ForeignKey(TypeClient, on_delete=models.SET_NULL, null=True, blank=True)
+    nom_employeur = models.CharField(max_length=100 ,null=True,blank=True) #
+    type_client = models.ForeignKey(TypeClient, on_delete=models.SET_NULL, null=True, blank=True) #
 
 
     #fatca natio américaine
