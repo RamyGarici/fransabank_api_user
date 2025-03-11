@@ -17,7 +17,7 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username']
 
     def soft_delete(self):
-        self.deleted_at = datetime.now()
+        self.deleted_at = timezone.now()
         self.save()
 
         if hasattr(self, 'profile') and self.profile:
@@ -26,6 +26,8 @@ class User(AbstractUser):
             self.demandes_comptes.soft_delete()
         if hasattr(self, 'client_profile') and self.client_profile:
             self.client_profile.soft_delete()
+        if hasattr(self, 'employe') and self.employe:
+         self.employe.soft_delete()
 
     def delete(self, *args, **kwargs):
         self.soft_delete()
@@ -41,7 +43,7 @@ class Profile(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     def soft_delete(self):
-        self.deleted_at = datetime.now()
+        self.deleted_at = timezone.now()
         self.save()
     def delete(self, *args, **kwargs):
         self.soft_delete()
@@ -153,8 +155,12 @@ class DemandeCompteBancaire(models.Model):
 
 
     def soft_delete(self):
-        self.deleted_at = datetime.now()
+        self.deleted_at = timezone.now()
         self.save()
+        if hasattr(self, 'document_set'):
+         for document in self.document_set.all():
+            document.soft_delete()
+
         if hasattr(self, 'client') and self.client:
             self.client.soft_delete()
     def delete(self, *args, **kwargs):
@@ -204,8 +210,11 @@ class Client(models.Model):
         if not self.password_client and self.user and self.user.password:
             self.password_client = self.user.password
     def soft_delete(self):
-        self.deleted_at = datetime.now()
+        self.deleted_at = timezone.now()
         self.save()
+        if hasattr(self, 'compte_set'):
+         for compte in self.compte_set.all():
+            compte.soft_delete()
 
     def delete(self, *args, **kwargs):
         self.soft_delete()
@@ -259,8 +268,10 @@ class Compte(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     def soft_delete(self):
-        self.deleted_at=datetime.now()
+        self.deleted_at = timezone.now()
         self.save()
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
     def __str__(self):
         return f"Compte {self.compte_id} - Type: {self.type_compte.nom_type} - Client: {self.client.nom} {self.client.prenom}"
@@ -268,6 +279,15 @@ class Compte(models.Model):
 class TypeDocument(models.Model):
     type_document_id = models.AutoField(primary_key=True)  # Identifiant unique du type de document
     nom_type = models.CharField(max_length=50)  # Nom du type de document
+    deleted_at = models.DateTimeField(null=True, blank=True)  # Soft delete
+
+    def soft_delete(self):
+        self.deleted_at = timezone.now()
+        self.save()
+
+    def restore(self):
+        self.deleted_at = None
+        self.save()
 
     def __str__(self):
         return self.nom_type
@@ -289,8 +309,10 @@ class Document(models.Model):
     deleted_at=models.DateTimeField(null=True,blank=True)
 
     def soft_delete(self):
-        self.deleted_at=datetime.now()
+        self.deleted_at = timezone.now()
         self.save()
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
 
 
     def __str__(self):
@@ -421,6 +443,23 @@ class Employe(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employe_profile")
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='agent')
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    
+
+    def save(self, *args, **kwargs):
+        if not self.user.is_staff:
+            self.user.is_staff = True  # Marque l'utilisateur comme employé
+            self.user.save()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+    def soft_delete(self):
+        
+        self.deleted_at = timezone.now()
+        self.save()
+        if self.user:
+            self.user.deleted_at = timezone.now()
+            self.user.save()
+    def delete(self, *args, **kwargs):
+        self.soft_delete()
