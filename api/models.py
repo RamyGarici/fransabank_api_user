@@ -8,6 +8,8 @@ from django.utils.timezone import now
 from django.utils import timezone
 import secrets
 import uuid
+from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied
 class User(AbstractUser):
     username = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
@@ -30,8 +32,10 @@ class User(AbstractUser):
          self.employe.soft_delete()
 
     def delete(self, *args, **kwargs):
+        request = kwargs.get("request")
+        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()
-
     def __str__(self):
         return self.username
 class Profile(models.Model):
@@ -46,6 +50,9 @@ class Profile(models.Model):
         self.deleted_at = timezone.now()
         self.save()
     def delete(self, *args, **kwargs):
+        request = kwargs.get("request")
+        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()
 
     def __str__(self):
@@ -164,6 +171,9 @@ class DemandeCompteBancaire(models.Model):
         if hasattr(self, 'client') and self.client:
             self.client.soft_delete()
     def delete(self, *args, **kwargs):
+        request = kwargs.get("request")
+        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()
 
     def __str__(self):
@@ -217,6 +227,9 @@ class Client(models.Model):
             compte.soft_delete()
 
     def delete(self, *args, **kwargs):
+        request = kwargs.get("request")
+        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()
 
     def __str__(self):
@@ -271,6 +284,9 @@ class Compte(models.Model):
         self.deleted_at = timezone.now()
         self.save()
     def delete(self, *args, **kwargs):
+        request = kwargs.get("request")
+        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()
 
     def __str__(self):
@@ -312,6 +328,9 @@ class Document(models.Model):
         self.deleted_at = timezone.now()
         self.save()
     def delete(self, *args, **kwargs):
+        request = kwargs.get("request")
+        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()
 
 
@@ -462,4 +481,7 @@ class Employe(models.Model):
             self.user.deleted_at = timezone.now()
             self.user.save()
     def delete(self, *args, **kwargs):
+        request = kwargs.get("request")
+        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()

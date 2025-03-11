@@ -37,8 +37,12 @@ class BaseAdmin(admin.ModelAdmin):
     list_filter = (SoftDeleteFilter,)
     list_display = ['deleted_at', 'soft_delete_button']
 
+    
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
+        for obj in qs:
+            obj._request = request  # Injecte request dans chaque objet pour l'utiliser dans soft_delete_button
         return qs if request.user.is_superuser else qs.filter(deleted_at__isnull=True)
 
     def get_list_filter(self, request):
@@ -46,23 +50,47 @@ class BaseAdmin(admin.ModelAdmin):
             return (SoftDeleteFilter,)
         return ()
 
-    def has_add_permission(self, request):
-        return request.user.is_superuser  # Seul l'admin peut ajouter
+    def has_delete_permission(self, request, obj=None):
+       
+        
+        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+           
+            return False  # Bloquer la suppression
 
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser  # Seul l'admin peut modifier
+        print("✅ Suppression autorisée")
+        return True
+
+    def get_actions(self, request):
+        """Désactive complètement la suppression pour les agents"""
+        actions = super().get_actions(request)
+        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            if "delete_selected" in actions:
+                del actions["delete_selected"]  # Supprime l'action de suppression en masse
+        return actions
 
     def delete_model(self, request, obj):
+        """Empêche les agents bancaires de supprimer tout objet."""
+        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            messages.error(request, "Vous n'avez pas l'autorisation de supprimer cet objet.")
+            return  # Bloque la suppression
+
+        # Appliquer le soft delete pour les autres utilisateurs
         obj.deleted_at = now()
         obj.save()
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser  # Seuls les super admins peuvent supprimer
+        messages.success(request, "L'élément a été soft supprimé.")
 
     def soft_delete_button(self, obj):
-        """Affiche 🗑️ pour soft delete et ✅ pour restaurer"""
+        """Affiche 🗑️ pour soft delete et ✅ pour restaurer, sauf pour les agents"""
         if not obj.pk:
-            return "-"
+           return "-"
+
+        request = getattr(obj, "_request", None)
+        is_agent = False
+
+        if request:
+          is_agent = getattr(request.user, "employe_profile", None) and getattr(request.user.employe_profile, "role", None) == "agent"
+          if is_agent:
+            return "-"  # Cacher complètement le bouton pour les agents
 
         url_name = "restore" if obj.deleted_at else "soft_delete"
         url = reverse(f'admin:{url_name}', args=[obj._meta.model_name, obj.pk])
@@ -72,6 +100,9 @@ class BaseAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" style="color: {}; font-size: 18px;">{}</a>', url, color, emoji)
 
     soft_delete_button.short_description = "Action"
+
+
+
 
 
 ### 📌 Vue pour gérer le Soft Delete et la restauration ###
@@ -123,40 +154,7 @@ class MyAdminSite(admin.AdminSite):
             messages.success(request, "L'élément a été restauré.")
         return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/admin/'))
 
-    def get_app_list(self, request):
-        """Personnalise la liste des modèles visibles en fonction de l'utilisateur."""
-        logger.debug(f"🔎 Utilisateur connecté: {request.user.username}, is_superuser={request.user.is_superuser}, is_staff={request.user.is_staff}")
-
-        app_list = super().get_app_list(request)
-
-        if request.user.is_superuser:
-            return app_list  # Le superadmin voit tout
-
-        new_app_list = []
-        for app in app_list:
-            new_models = []
-            for model in app["models"]:
-                model_name = model["object_name"].lower()
-                logger.debug(f"📌 Vérification du modèle: {model_name}")
-
-                # 🔴 Agent bancaire : ne voit que les demandes, documents, clients et profils
-                if request.user.is_staff and not request.user.is_superuser:
-                    if model_name in ["demandecomptebancaire", "typedocument", "client", "profile"]:
-                        logger.debug(f"✅ Ajouté pour agent bancaire: {model_name}")
-                        new_models.append(model)
-
-                # 🟢 Admin normal : ne voit pas "User"
-                elif request.user.is_staff:
-                    if model_name not in ["user"]:
-                        logger.debug(f"✅ Ajouté pour admin: {model_name}")
-                        new_models.append(model)
-
-            if new_models:
-                app["models"] = new_models
-                new_app_list.append(app)
-
-        logger.debug(f"📢 Modèles finaux affichés: {[model['object_name'] for app in new_app_list for model in app['models']]}")
-        return new_app_list
+    
 
 
 admin_site = MyAdminSite()
@@ -170,17 +168,29 @@ class UserAdmin(BaseAdmin):
 
 ### 📌 Formulaire Employé ###
 class EmployeAdminForm(forms.ModelForm):
-    email = forms.EmailField(label="Email")
-    username = forms.CharField(label="Nom d'utilisateur")
-    first_name = forms.CharField(label="Prénom")
-    last_name = forms.CharField(label="Nom")
+    """Formulaire permettant d'éditer les informations d'un employé et de son utilisateur."""
+    
+    email = forms.EmailField(label="Email", required=True)
+    username = forms.CharField(label="Nom d'utilisateur", required=True)
+    first_name = forms.CharField(label="Prénom", required=True)
+    last_name = forms.CharField(label="Nom", required=True)
     password = forms.CharField(label="Mot de passe", widget=forms.PasswordInput, required=False)
 
     class Meta:
         model = Employe
-        fields = ['role']
+        fields = ['role']  # On gère seulement "role", le reste vient du modèle User
+
+    def __init__(self, *args, **kwargs):
+        """Pré-remplit les champs avec les valeurs de l'utilisateur associé."""
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.user:
+            self.fields['email'].initial = self.instance.user.email
+            self.fields['username'].initial = self.instance.user.username
+            self.fields['first_name'].initial = self.instance.user.first_name
+            self.fields['last_name'].initial = self.instance.user.last_name
 
     def save(self, commit=True):
+        """Sauvegarde l'utilisateur et l'employé ensemble."""
         employe = super().save(commit=False)
         user = employe.user if employe.user_id else User()
 
@@ -190,9 +200,9 @@ class EmployeAdminForm(forms.ModelForm):
         user.last_name = self.cleaned_data['last_name']
 
         if self.cleaned_data['password']:
-            user.password = make_password(self.cleaned_data['password'])
+            user.set_password(self.cleaned_data['password'])  # Met à jour le mot de passe
 
-        user.is_staff = True
+        user.is_staff = True  # S'assure que l'utilisateur est bien un employé
         user.save()
 
         employe.user = user
@@ -201,11 +211,60 @@ class EmployeAdminForm(forms.ModelForm):
         return employe
 
 
-### 📌 Admin Employé ###
+
 class EmployeAdmin(BaseAdmin):
+    """Admin Django pour les employés."""
+    
     list_filter = ['role', SoftDeleteFilter]
-    list_display = ['user', 'role', 'deleted_at', 'soft_delete_button']
-    form = EmployeAdminForm
+    list_display = ['username', 'email', 'first_name', 'last_name', 'role', 'deleted_at', 'soft_delete_button']
+    form = EmployeAdminForm  # Utilisation du formulaire personnalisé
+
+    fieldsets = (
+        ("Informations de l'employé", {
+            "fields": ("role",),
+        }),
+        ("Informations utilisateur", {
+            "fields": ("username", "email", "first_name", "last_name", "password"),
+        }),
+    )
+
+    def username(self, obj):
+        return obj.user.username if obj.user else "-"
+    
+    def email(self, obj):
+        return obj.user.email if obj.user else "-"
+
+    def first_name(self, obj):
+        return obj.user.first_name if obj.user else "-"
+    
+    def last_name(self, obj):
+        return obj.user.last_name if obj.user else "-"
+
+    username.short_description = "Nom d'utilisateur"
+    email.short_description = "Email"
+    first_name.short_description = "Prénom"
+    last_name.short_description = "Nom"
+
+    def get_readonly_fields(self, request, obj=None):
+        """Empêche les agents bancaires de modifier leur rôle et leurs identifiants."""
+        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            return ("role", "username", "email", "first_name", "last_name")  # L'agent bancaire ne peut rien modifier
+        return ()  # Permet la modification pour les autres utilisateurs
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
 
 
 ### 📌 Admin Profil ###
@@ -226,11 +285,11 @@ class DemandeCompteBancaireAdmin(BaseAdmin):
     list_display = ['user', 'status', 'created_at', 'deleted_at', 'soft_delete_button']
     list_filter = ['status', SoftDeleteFilter]
 
-    def has_add_permission(self, request):
-        return False  # Personne ne peut ajouter
+    # def has_add_permission(self, request):
+    #     return False  # Personne ne peut ajouter
 
-    def has_delete_permission(self, request, obj=None):
-        return False  # Personne ne peut supprimer
+    # def has_delete_permission(self, request, obj=None):
+    #     return False  # Personne ne peut supprimer
 
 
 ### 📌 Admin Client ###

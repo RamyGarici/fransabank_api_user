@@ -1,22 +1,57 @@
-from django.contrib.auth.models import Group, Permission
-from django.db.models.signals import post_migrate
+from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.contrib.auth.models import Group
+from api.models import Employe
+from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from api.models import Client, Profile, DemandeCompteBancaire
+from api.models import DemandeCompteBancaire
 
-@receiver(post_migrate)
-def create_agent_bancaire_group(sender, **kwargs):
-    group, created = Group.objects.get_or_create(name="Agent Bancaire")
+def setup_roles():
+    """Crée les groupes et assigne les permissions aux rôles."""
+    
 
-    content_types = [
-        ContentType.objects.get_for_model(Client),
-        ContentType.objects.get_for_model(Profile),
-        ContentType.objects.get_for_model(DemandeCompteBancaire),
-    ]
+    # Créer ou récupérer les groupes
+    admin_group, _ = Group.objects.get_or_create(name="Admin")
+    agent_group, _ = Group.objects.get_or_create(name="Agent")
 
-    permissions = Permission.objects.filter(content_type__in=content_types, codename__in=[
-        "view_client", "view_profile", "view_demande", "change_demande"
-    ])
+    # Donner toutes les permissions à l'admin sauf sur le modèle User
+    admin_permissions = Permission.objects.exclude(content_type__model="user")
+    admin_group.permissions.set(admin_permissions)
 
-    group.permissions.set(permissions)
-    print(" Groupe 'Agent Bancaire' et permissions configurés.")
+    # Donner aux agents bancaires uniquement les permissions de lecture
+    agent_permissions = Permission.objects.filter(
+        content_type__model__in=["profile", "demandecomptebancaire", "client", "typedocument"],
+        codename__startswith="view_"  # Seulement lecture
+    )
+    agent_group.permissions.set(agent_permissions)
+
+    # Ajouter la permission spécifique de modification uniquement pour les demandes de compte
+    demande_ct = ContentType.objects.get_for_model(DemandeCompteBancaire)
+    change_permission, _ = Permission.objects.get_or_create(
+        codename="change_demandecomptebancaire",
+        content_type=demande_ct
+    )
+    agent_group.permissions.add(change_permission)
+    agent_group.permissions.remove(*Permission.objects.filter(codename__startswith="delete_"))
+    
+
+
+@receiver(post_save, sender=Employe)
+def assign_role(sender, instance, created, **kwargs):
+    if created:
+        setup_roles()
+
+        # Assigner le groupe en fonction du rôle
+        group_name = "Admin" if instance.role == "admin" else "Agent"
+        group, _ = Group.objects.get_or_create(name=group_name)
+        instance.user.groups.set([group])
+
+        # Supprimer les permissions de suppression individuelles
+        if instance.role == "agent":
+            instance.user.user_permissions.remove(*Permission.objects.filter(codename__startswith="delete_"))
+            instance.user.is_staff = True  # Laisse l'accès à l'admin mais en lecture/modification limitée
+        else:
+            instance.user.is_staff = True  # L'admin a un accès complet
+
+        instance.user.save()
+
