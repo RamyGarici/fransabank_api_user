@@ -212,6 +212,8 @@ class EmployeAdminForm(forms.ModelForm):
 
 
 
+
+
 class EmployeAdmin(BaseAdmin):
     """Admin Django pour les employés."""
     
@@ -230,13 +232,13 @@ class EmployeAdmin(BaseAdmin):
 
     def username(self, obj):
         return obj.user.username if obj.user else "-"
-    
+
     def email(self, obj):
         return obj.user.email if obj.user else "-"
 
     def first_name(self, obj):
         return obj.user.first_name if obj.user else "-"
-    
+
     def last_name(self, obj):
         return obj.user.last_name if obj.user else "-"
 
@@ -250,6 +252,23 @@ class EmployeAdmin(BaseAdmin):
         if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
             return ("role", "username", "email", "first_name", "last_name")  # L'agent bancaire ne peut rien modifier
         return ()  # Permet la modification pour les autres utilisateurs
+
+    def save_model(self, request, obj, form, change):
+        """Créer automatiquement un User si l'Employé n'en a pas"""
+        if not obj.user_id:  # Si aucun User n'est associé
+            user = User.objects.create(
+                username=f"emp_{int(now().timestamp())}",
+                email=form.cleaned_data.get("email", ""),
+                first_name=form.cleaned_data.get("first_name", ""),
+                last_name=form.cleaned_data.get("last_name", ""),
+                is_staff=True
+            )
+            obj.user = user  # Associe le nouvel utilisateur à l'Employé
+
+        obj.save()  # Sauvegarde l'Employé
+
+
+
 
 
 class CarteBancaireInline(admin.TabularInline):  
@@ -291,11 +310,7 @@ class DemandeCompteBancaireAdmin(BaseAdmin):
     list_display = ['user', 'status', 'created_at', 'deleted_at', 'soft_delete_button']
     list_filter = ['status', SoftDeleteFilter]
 
-    # def has_add_permission(self, request):
-    #     return False  # Personne ne peut ajouter
 
-    # def has_delete_permission(self, request, obj=None):
-    #     return False  # Personne ne peut supprimer
 
 
 ### 📌 Admin Client ###

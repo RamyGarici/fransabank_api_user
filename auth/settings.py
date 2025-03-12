@@ -91,7 +91,8 @@ REST_FRAMEWORK = {
 }
   
 AUTHENTICATION_BACKENDS = [
-    'api.authentication.ClientBackend',  # Remplace par le bon chemin
+   
+    'api.authentication.ClientBackend',  
     'django.contrib.auth.backends.ModelBackend',  # Garde le backend par défaut
 ]
 

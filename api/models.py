@@ -19,6 +19,9 @@ class User(AbstractUser):
     username = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    def is_deleted(self):
+        """Retourne True si l'utilisateur est soft deleted"""
+        return self.deleted_at is not None
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -56,8 +59,10 @@ class Profile(models.Model):
         self.save()
     def delete(self, *args, **kwargs):
         request = kwargs.get("request")
-        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
-            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
+        if request and not request.user.is_superuser:
+            admin_class = EmployeAdmin(self.__class__, admin.site)  # Obtenir l'admin associé
+            if not admin_class.has_delete_permission(request, self):
+                raise PermissionDenied("❌ Vous n'avez pas la permission de supprimer cet employé.")
         self.soft_delete()
 
     def __str__(self):
@@ -545,33 +550,46 @@ class ResultatIA(models.Model):
         return f"Analyse {self.resultat_id} - {self.type_analyse} - {self.resultat} - {self.client.nom} {self.client.prenom}"
 
 
+
+
 class Employe(models.Model):
     ROLE_CHOICES = [
         ('agent', 'Agent Bancaire'),
         ('admin', 'Administrateur'),
     ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employe_profile")
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employe_profile", null=True, blank=True)  # RENDRE LE CHAMP OPTIONNEL
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='agent')
     deleted_at = models.DateTimeField(null=True, blank=True)
-    
 
     def save(self, *args, **kwargs):
+        # 🚨 Créer un User automatiquement si aucun n'est associé
+        if not self.user:
+            user = User.objects.create(
+                username=f"emp_{int(now().timestamp())}",
+                is_staff=True
+            )
+            self.user = user
+
         if not self.user.is_staff:
             self.user.is_staff = True  # Marque l'utilisateur comme employé
             self.user.save()
+
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user.username} - {self.get_role_display()}"
+        return f"{self.user.username if self.user else 'Sans utilisateur'} - {self.get_role_display()}"
+
     def soft_delete(self):
-        
-        self.deleted_at = timezone.now()
+        """Soft delete de l'employé et de son User"""
+        self.deleted_at = now()
         self.save()
         if self.user:
-            self.user.deleted_at = timezone.now()
+            self.user.deleted_at = now()
             self.user.save()
+
     def delete(self, *args, **kwargs):
+        """Empêcher les agents de supprimer"""
         request = kwargs.get("request")
         if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
             raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
