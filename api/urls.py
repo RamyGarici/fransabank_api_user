@@ -22,6 +22,7 @@ urlpatterns = [
     #path("api/", include(router.urls)),   corriger le "" pour le lien soit /api/client et non pas /api/api/client
     path("", include(router.urls)),  # API versionnée proprement
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+    path('api/protected-endpoint/', views.protected_view),
 ]
 
 # Servir les fichiers médias en mode DEBUG

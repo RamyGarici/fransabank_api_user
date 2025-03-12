@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from api.models import User, Profile,Client,DemandeCompteBancaire,EmailVerificationToken
 from api.serializer import UserSerializer, MyTokenObtainPairSerializer, RegisterSerializer,ClientSerializer,DemandeCompteBancaireSerializer
-from rest_framework.decorators import api_view,action
+from rest_framework.decorators import api_view,action,permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import generics,viewsets,status
 from rest_framework.permissions import AllowAny,IsAuthenticated,IsAdminUser
@@ -256,3 +256,9 @@ def check_email_verification(request, email):
         return JsonResponse({'is_verified': user.is_active})
     except User.DoesNotExist:
         return JsonResponse({'error': "Utilisateur non trouvé"}, status=404)
+    
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # Protège l'endpoint avec JWT
+def protected_view(request):
+    return Response({"message": "Ceci est un endpoint protégé !"}, status=200)
