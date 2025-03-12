@@ -5,6 +5,7 @@ from api import views
 from django.conf import settings
 from django.conf.urls.static import static
 
+
 router = DefaultRouter()
 router.register(r'demandecompte', views.DemandeCompteBancaireViewSet, basename='demandecompte')
 router.register(r'client', views.ClientViewSet, basename='client')

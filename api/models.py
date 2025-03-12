@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save,pre_delete
+from django.dispatch import receiver
 from django.forms import ValidationError
 from datetime import datetime,timedelta
 from django.db.models import  UniqueConstraint
@@ -27,17 +28,21 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username']
 
     def soft_delete(self):
-        self.deleted_at = timezone.now()
-        self.save()
+     self.deleted_at = timezone.now()
+     self.save()
 
-        if hasattr(self, 'profile') and self.profile:
-            self.profile.soft_delete()
-        if hasattr(self, 'demandes_comptes') and self.demandes_comptes:
-            self.demandes_comptes.soft_delete()
-        if hasattr(self, 'client_profile') and self.client_profile:
-            self.client_profile.soft_delete()
-        if hasattr(self, 'employe') and self.employe:
-         self.employe.soft_delete()
+     # Assurez-vous que vous avez bien une instance de profile et d'employe
+     if hasattr(self, 'profile') and self.profile:
+        self.profile.soft_delete()
+     if hasattr(self, 'demandes_comptes_profile') and self.demandes_comptes:
+        self.demandes_comptes_profil.soft_delete()
+     if hasattr(self, 'client_profile'):
+       for client in self.client_profile.all():  # Boucle sur tous les profils clients liés
+        client.soft_delete()
+     # Vérifiez si `self.employe` est bien une instance de `Employe`
+     if hasattr(self, 'employe_profile') and self.employe_profile:
+        self.employe_profile.soft_delete()  # Cela devrait maintenant fonctionner
+
 
     def delete(self, *args, **kwargs):
         request = kwargs.get("request")
@@ -47,7 +52,7 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     verified = models.BooleanField(default=False)
@@ -64,6 +69,11 @@ class Profile(models.Model):
             if not admin_class.has_delete_permission(request, self):
                 raise PermissionDenied("❌ Vous n'avez pas la permission de supprimer cet employé.")
         self.soft_delete()
+        if hasattr(self, "user") and self.user:
+         self.user.deleted_at = now()  # Marquer l'utilisateur comme supprimé
+         self.user.save(update_fields=["deleted_at"])  # Sauvegarder uniquement ce champ
+
+  
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -98,6 +108,8 @@ class TypeClient(models.Model):
 
   def __str__(self):
         return self.nom_type
+  
+
 
 
 class DemandeCompteBancaire(models.Model):   
@@ -245,7 +257,13 @@ class Client(models.Model):
         if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
             raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
         self.soft_delete()
+        if hasattr(self, "user") and self.user:
+          self.user.deleted_at = now()  # Marquer l'utilisateur comme supprimé
+          self.user.save(update_fields=["deleted_at"])  # Sauvegarder uniquement ce champ
 
+    
+        
+    
     def __str__(self):
         return f"{self.prenom} {self.nom}"
 
@@ -558,12 +576,11 @@ class Employe(models.Model):
         ('admin', 'Administrateur'),
     ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employe_profile", null=True, blank=True)  # RENDRE LE CHAMP OPTIONNEL
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employe_profile", null=True, blank=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='agent')
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        # 🚨 Créer un User automatiquement si aucun n'est associé
         if not self.user:
             user = User.objects.create(
                 username=f"emp_{int(now().timestamp())}",
@@ -572,7 +589,7 @@ class Employe(models.Model):
             self.user = user
 
         if not self.user.is_staff:
-            self.user.is_staff = True  # Marque l'utilisateur comme employé
+            self.user.is_staff = True  # Mark the user as an employee
             self.user.save()
 
         super().save(*args, **kwargs)
@@ -584,13 +601,29 @@ class Employe(models.Model):
         """Soft delete de l'employé et de son User"""
         self.deleted_at = now()
         self.save()
-        if self.user:
-            self.user.deleted_at = now()
-            self.user.save()
+        
+        
 
     def delete(self, *args, **kwargs):
-        """Empêcher les agents de supprimer"""
-        request = kwargs.get("request")
-        if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
-            raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
-        self.soft_delete()
+     """Empêcher les agents de supprimer"""
+     request = kwargs.get("request")
+    
+     if request and hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+        raise PermissionDenied("Les agents bancaires ne peuvent pas supprimer des documents.")
+    
+     # Vérification si self.user existe avant de tenter de l'utiliser
+    
+    
+     self.soft_delete() 
+     if hasattr(self, "user") and self.user:
+        self.user.deleted_at = now()  # Marquer l'utilisateur comme supprimé
+        self.user.save(update_fields=["deleted_at"])  # Sauvegarder uniquement ce champ
+
+     # Supprimer l'instance pour éviter qu'elle continue d'exister en mémoire
+  
+    # Utilisation de la méthode soft_delete() de l'employé
+
+
+
+
+

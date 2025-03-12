@@ -1,10 +1,11 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import Group
-from api.models import Employe
+from api.models import Employe,Profile
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from api.models import DemandeCompteBancaire
+from django.db.models.signals import pre_delete
 
 def setup_roles():
     """Crée les groupes et assigne les permissions aux rôles."""
@@ -54,4 +55,11 @@ def assign_role(sender, instance, created, **kwargs):
             instance.user.is_staff = True  # L'admin a un accès complet
 
         instance.user.save()
-
+@receiver(pre_delete, sender=Profile)
+def delete_user_when_profile_deleted(sender, instance, **kwargs):
+    print("Signal pre_delete déclenché pour le profil:", instance)
+    if instance.user:
+        print("Suppression de l'utilisateur associé:", instance.user)
+        instance.user.delete()
+    else:
+        print("Aucun utilisateur associé à ce profil.")

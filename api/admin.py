@@ -6,15 +6,11 @@ from django.http import HttpResponseRedirect
 from django.contrib.auth.hashers import make_password
 from django import forms
 from django.contrib import messages
-from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, Document, Client
+from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, Document, Client, cartebancaire
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, cartebancaire, Client
-
-
 
 ### 📌 Filtre Soft Delete ###
 class SoftDeleteFilter(admin.SimpleListFilter):
@@ -35,9 +31,7 @@ class SoftDeleteFilter(admin.SimpleListFilter):
 ### 📌 Base Admin avec Soft Delete ###
 class BaseAdmin(admin.ModelAdmin):
     list_filter = (SoftDeleteFilter,)
-    list_display = ['deleted_at', 'soft_delete_button']
-
-    
+    list_display = ['deleted_at' ]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -51,58 +45,89 @@ class BaseAdmin(admin.ModelAdmin):
         return ()
 
     def has_delete_permission(self, request, obj=None):
-       
-        
         if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
-           
             return False  # Bloquer la suppression
 
         print("✅ Suppression autorisée")
         return True
 
-    def get_actions(self, request):
-        """Désactive complètement la suppression pour les agents"""
-        actions = super().get_actions(request)
-        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
-            if "delete_selected" in actions:
-                del actions["delete_selected"]  # Supprime l'action de suppression en masse
-        return actions
+    # def get_actions(self, request):
+    #     """Désactive complètement la suppression pour les agents"""
+    #     actions = super().get_actions(request)
+    #     if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+    #         if "delete_selected" in actions:
+    #             del actions["delete_selected"]  # Supprime l'action de suppression en masse
+    #     return actions
 
-    def delete_model(self, request, obj):
-        """Empêche les agents bancaires de supprimer tout objet."""
-        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
-            messages.error(request, "Vous n'avez pas l'autorisation de supprimer cet objet.")
-            return  # Bloque la suppression
+    # def delete_model(self, request, obj):
+    #     """Empêche les agents bancaires de supprimer tout objet et gère la suppression des objets liés (Employé, Profil, Demande de Compte, Client)."""
+    #     if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+    #         messages.error(request, "Vous n'avez pas l'autorisation de supprimer cet objet.")
+    #         return  # Bloque la suppression pour l'agent
 
-        # Appliquer le soft delete pour les autres utilisateurs
-        obj.deleted_at = now()
-        obj.save()
-        messages.success(request, "L'élément a été soft supprimé.")
+    #     # Assurez-vous que 'obj' est un utilisateur
+    #     if isinstance(obj, User):
+    #         # Soft delete de l'employé associé (si existant)
+    #         try:
+    #             employe = Employe.objects.get(user=obj)
+    #             employe.deleted_at = now()  # Soft delete de l'employé
+    #             employe.save()
+    #             logger.info(f"Employé {employe} soft supprimé.")
+    #         except Employe.DoesNotExist:
+    #             pass  # Si l'utilisateur n'a pas d'employé associé, on ignore
 
-    def soft_delete_button(self, obj):
-        """Affiche 🗑️ pour soft delete et ✅ pour restaurer, sauf pour les agents"""
-        if not obj.pk:
-           return "-"
+    #         # Soft delete du profil associé (si existant)
+    #         try:
+    #             profile = Profile.objects.get(user=obj)
+    #             profile.deleted_at = now()  # Soft delete du profil
+    #             profile.save()
+    #             logger.info(f"Profil {profile} soft supprimé.")
+    #         except Profile.DoesNotExist:
+    #             pass  # Si l'utilisateur n'a pas de profil associé, on ignore
 
-        request = getattr(obj, "_request", None)
-        is_agent = False
+    #         # Soft delete des demandes de compte bancaire associées (si existantes)
+    #         demandes = DemandeCompteBancaire.objects.filter(user=obj)
+    #         for demande in demandes:
+    #             demande.deleted_at = now()  # Soft delete de la demande de compte bancaire
+    #             demande.save()
+    #             logger.info(f"Demande de compte bancaire {demande} soft supprimée.")
 
-        if request:
-          is_agent = getattr(request.user, "employe_profile", None) and getattr(request.user.employe_profile, "role", None) == "agent"
-          if is_agent:
-            return "-"  # Cacher complètement le bouton pour les agents
+    #         # Soft delete du client associé (si existant)
+    #         try:
+    #             client = Client.objects.get(user=obj)
+    #             client.deleted_at = now()  # Soft delete du client
+    #             client.save()
+    #             logger.info(f"Client {client} soft supprimé.")
+    #         except Client.DoesNotExist:
+    #             pass  # Si l'utilisateur n'a pas de client associé, on ignore
 
-        url_name = "restore" if obj.deleted_at else "soft_delete"
-        url = reverse(f'admin:{url_name}', args=[obj._meta.model_name, obj.pk])
-        emoji = "✅" if obj.deleted_at else "🗑️"
-        color = "green" if obj.deleted_at else "red"
+    #     # Appliquer le soft delete pour l'utilisateur
+    #     obj.deleted_at = now()
+    #     obj.save()
+    #     messages.success(request, "L'élément et ses éléments associés ont été soft supprimés.")
 
-        return format_html('<a href="{}" style="color: {}; font-size: 18px;">{}</a>', url, color, emoji)
+    # def soft_delete_button(self, obj):
+    #     """Affiche 🗑️ pour soft delete et ✅ pour restaurer, sauf pour les agents"""
+    #     if not obj.pk:
+    #         return "-"
 
-    soft_delete_button.short_description = "Action"
+    #     request = getattr(obj, "_request", None)
+    #     is_agent = False
 
+    #     if request:
+    #         is_agent = getattr(request.user, "employe_profile", None) and getattr(request.user.employe_profile, "role", None) == "agent"
+    #         if is_agent:
+    #             return "-"  # Cacher complètement le bouton pour les agents
+        
 
+    #     url_name = "restore" if obj.deleted_at else "soft_delete"
+    #     url = reverse(f'admin:{url_name}', args=[obj._meta.model_name, obj.pk])
+    #     emoji = "✅" if obj.deleted_at else "🗑️"
+    #     color = "green" if obj.deleted_at else "red"
 
+    #     return format_html('<a href="{}" style="color: {}; font-size: 18px;">{}</a>', url, color, emoji)
+
+    # soft_delete_button.short_description = "Action"
 
 
 ### 📌 Vue pour gérer le Soft Delete et la restauration ###
@@ -154,8 +179,6 @@ class MyAdminSite(admin.AdminSite):
             messages.success(request, "L'élément a été restauré.")
         return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/admin/'))
 
-    
-
 
 admin_site = MyAdminSite()
 admin.site = admin_site
@@ -163,13 +186,13 @@ admin.site = admin_site
 
 ### 📌 Admin Utilisateur ###
 class UserAdmin(BaseAdmin):
-    list_display = ['username', 'email', 'is_staff', 'is_superuser', 'deleted_at', 'soft_delete_button']
+    list_display = ['username', 'email', 'is_staff', 'is_superuser', 'deleted_at']
 
 
 ### 📌 Formulaire Employé ###
 class EmployeAdminForm(forms.ModelForm):
     """Formulaire permettant d'éditer les informations d'un employé et de son utilisateur."""
-    
+
     email = forms.EmailField(label="Email", required=True)
     username = forms.CharField(label="Nom d'utilisateur", required=True)
     first_name = forms.CharField(label="Prénom", required=True)
@@ -211,14 +234,11 @@ class EmployeAdminForm(forms.ModelForm):
         return employe
 
 
-
-
-
 class EmployeAdmin(BaseAdmin):
     """Admin Django pour les employés."""
-    
+
     list_filter = ['role', SoftDeleteFilter]
-    list_display = ['username', 'email', 'first_name', 'last_name', 'role', 'deleted_at', 'soft_delete_button']
+    list_display = ['username', 'email', 'first_name', 'last_name', 'role', 'deleted_at', ]
     form = EmployeAdminForm  # Utilisation du formulaire personnalisé
 
     fieldsets = (
@@ -268,33 +288,18 @@ class EmployeAdmin(BaseAdmin):
         obj.save()  # Sauvegarde l'Employé
 
 
-
-
-
-class CarteBancaireInline(admin.TabularInline):  
+### 📌 Admin Carte Bancaire ###
+class CarteBancaireInline(admin.TabularInline):
     model = cartebancaire
-    extra = 0  
-    fields = ("numero_carte", "type_carte", "date_expiration", "statut_carte","is_active")  
-    readonly_fields = ("numero_carte", "type_carte", "date_expiration", "statut_carte")  
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
+    extra = 0
+    fields = ("numero_carte", "type_carte", "date_expiration", "statut_carte", "is_active")
+    readonly_fields = ("numero_carte", "type_carte", "date_expiration", "statut_carte")
 
 
 ### 📌 Admin Profil ###
 class ProfileAdmin(BaseAdmin):
-    list_display = ['user', 'first_name', 'last_name', 'deleted_at', 'soft_delete_button']
+    list_display = ['user', 'first_name', 'last_name', 'deleted_at']
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.filter(user__is_staff=False)
@@ -302,20 +307,28 @@ class ProfileAdmin(BaseAdmin):
 
 ### 📌 Admin Type Document ###
 class TypeDocumentAdmin(BaseAdmin):
-    list_display = ['nom_type', 'deleted_at', 'soft_delete_button']
+    list_display = ['nom_type', 'deleted_at']
+
+
+
 
 
 ### 📌 Admin Demande de compte ###
 class DemandeCompteBancaireAdmin(BaseAdmin):
-    list_display = ['user', 'status', 'created_at', 'deleted_at', 'soft_delete_button']
+    list_display = ['user', 'status', 'created_at', 'deleted_at']
     list_filter = ['status', SoftDeleteFilter]
+    def get_readonly_fields(self, request, obj=None):
+        """Permet uniquement la modification du statut pour les agents bancaires"""
+        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            return [field.name for field in self.model._meta.fields if field.name != "status"]
+        return super().get_readonly_fields(request, obj)
 
 
 
 
 ### 📌 Admin Client ###
 class ClientAdmin(BaseAdmin):
-    list_display = ['user', 'client_id', 'deleted_at', 'soft_delete_button']
+    list_display = ['user', 'client_id', 'deleted_at']
     inlines = [CarteBancaireInline]
 
 
