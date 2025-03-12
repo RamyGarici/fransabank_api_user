@@ -173,7 +173,8 @@ class DemandeCompteBancaire(models.Model):
                 return demande_id
 
     def clean(self):
-        if self.Nationalité.lower() == "américaine" or self.Nationalité2.lower() == "américaine" :
+        if self.Nationalité and self.Nationalité.lower() == "américaine" or (self.Nationalité2 and self.Nationalité2.lower() == "américaine"):
+
             if not (self.fatca_nationalitéAM or self.fatca_greencardAM or self.fatca_residenceAM or self.fatca_TIN):
                 raise ValidationError("information fatca doivent etre remplis") 
        
