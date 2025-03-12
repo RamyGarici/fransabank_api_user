@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, Document, Client
+from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, cartebancaire, Client
 
 
 
@@ -252,6 +252,12 @@ class EmployeAdmin(BaseAdmin):
         return ()  # Permet la modification pour les autres utilisateurs
 
 
+class CarteBancaireInline(admin.TabularInline):  
+    model = cartebancaire
+    extra = 0  
+    fields = ("numero_carte", "type_carte", "date_expiration", "statut_carte","is_active")  
+    readonly_fields = ("numero_carte", "type_carte", "date_expiration", "statut_carte")  
+
 
 
 
@@ -295,6 +301,7 @@ class DemandeCompteBancaireAdmin(BaseAdmin):
 ### 📌 Admin Client ###
 class ClientAdmin(BaseAdmin):
     list_display = ['user', 'client_id', 'deleted_at', 'soft_delete_button']
+    inlines = [CarteBancaireInline]
 
 
 ### 📌 Enregistrement des modèles ###

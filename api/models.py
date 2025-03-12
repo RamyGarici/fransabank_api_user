@@ -4,12 +4,17 @@ from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.forms import ValidationError
 from datetime import datetime,timedelta
+from django.db.models import  UniqueConstraint
 from django.utils.timezone import now
 from django.utils import timezone
 import secrets
 import uuid
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import PermissionDenied
+import random
+from decimal import Decimal
+from .constants import PLAFONDS_CARTES
+
 class User(AbstractUser):
     username = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
@@ -88,6 +93,7 @@ class TypeClient(models.Model):
 
   def __str__(self):
         return self.nom_type
+
 
 class DemandeCompteBancaire(models.Model):   
     demande_id = models.CharField(max_length=12, unique=True, editable=False, blank=True, null=True)
@@ -193,8 +199,8 @@ class Client(models.Model):
     email = models.EmailField(unique=True)  
     type_client_id = models.IntegerField(default=1)
     deleted_at = models.DateTimeField(null=True, blank=True)
-
-
+    solde = models.DecimalField(max_digits=15, decimal_places=2,null=False)
+  
     password_client = models.CharField(max_length=128, blank=True, null=True)
 
     def set_password_client(self, raw_password):
@@ -210,7 +216,10 @@ class Client(models.Model):
             client_id = str(secrets.randbelow(10**16)).zfill(16)  # Assurer 16 chiffres
             if not Client.objects.filter(client_id=client_id).exists():
                 return client_id
-
+    
+    def get_cartes(self):
+        
+        return self.cartebancaire_set.all()
 
 
     def save(self, *args, **kwargs):
@@ -254,9 +263,91 @@ def create_client(sender, instance, **kwargs):
         client.save()
 post_save.connect(create_client, sender=DemandeCompteBancaire)
 
+def generate_numero_carte():
+    return f"213{''.join(str(random.randint(0, 9)) for _ in range(13))}"
+
+def default_expiration_date():
+    return timezone.now().date() + timedelta(days=2*365)
+
+def generate_cvc():
+    return str(random.randint(100, 999))
+
+class cartebancaire(models.Model):
+    client_id= models.ForeignKey(Client ,  on_delete=models.CASCADE)
+    numero_carte = models.CharField(max_length=16, unique=True , default=generate_numero_carte , editable=False)
+    date_ouverture = models.DateField(default=timezone.now)
+    date_expiration =models.DateField(default=default_expiration_date()) 
+    cvc =  models.CharField(max_length=3,default=generate_cvc() )
+    TYPE_CARTE_CHOICES = [
+        ("VISA", "Visa"),
+        ("MASTERCARD", "MasterCard"),
+        ("VISA_PLATINUM", "Visa Platinum"),
+        ("MASTERCARD_ELITE", "MasterCard World Elite"),
+        ("AMEX", "American Express"),
+        ("AMEX_GOLD", "American Express Gold"),
+    ]
+    type_carte = models.CharField(max_length=20, choices=TYPE_CARTE_CHOICES, default="VISA")
+    STATUT_CARTE_CHOICES = [
+    ("active", "Active"),
+    ("expirée", "Expirée"),
+    ("bloquée", "Bloquée"),
+]
+    statut_carte = models.CharField(max_length=20,choices=STATUT_CARTE_CHOICES, default="active")
+    plafond_paiement = models.DecimalField(max_digits=10, decimal_places=2,default=Decimal("5000.00"))  
+    plafond_retrait = models.DecimalField(max_digits=10, decimal_places=2,default=Decimal("2000.00"))
+    frais_carte = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal("50.00"))
+    is_active = models.BooleanField(default=True)#pour desactiver une carte
+    frais_payes = models.BooleanField(default=False)
 
 
+    def payer_frais(self):
+        self.frais_payes = True
+        self.save()
+    
+    def est_expiree(self):
+        return timezone.now().date() > self.date_expiration
+    
+    def renouveler_carte(self):
+        if not self.est_expiree():
+            raise ValueError("La carte n'est pas encore expirée.")
 
+        if self.client.solde < self.frais_carte:
+            raise ValueError("Solde insuffisant pour le renouvellement.")
+
+        self.client.solde -= self.frais_carte
+        self.client.save()
+
+        self.numero_carte = generate_numero_carte()
+        self.date_ouverture = timezone.now().date()
+        self.date_expiration = self.date_ouverture + timedelta(days=2*365)
+        self.cvc = str(random.randint(100, 999))
+        self.is_active = True
+        self.statut_carte = "active"
+        self.frais_payes = True  
+
+        self.save()
+
+    
+
+    def save(self, *args, **kwargs):
+        plafonds = PLAFONDS_CARTES.get(self.type_carte, {"paiement": Decimal("5000.00"), "retrait": Decimal("2000.00")})
+        self.plafond_paiement = plafonds["paiement"]
+        self.plafond_retrait = plafonds["retrait"]
+        if self.est_expiree():
+            self.is_active = False
+            self.statut_carte = "expirée"
+        elif not self.is_active:
+            self.statut_carte = "bloquée"
+        super().save(*args, **kwargs)
+
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["client_id", "type_carte"], name="unique_carte_par_type_par_client")
+        ]
+
+    def __str__(self):
+        return f"{self.get_type_carte_display()} - {self.numero_carte} (Expire le {self.date_expiration})- Frais payés: {'Oui' if self.frais_payes else 'Non'}"
 
 
 
@@ -273,7 +364,7 @@ class TypeCompte(models.Model):
 
 
 class Compte(models.Model): 
-    id_client = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence correcte
+    client_id = models.ForeignKey(Client, on_delete=models.CASCADE)  # Référence correcte
     type_compte = models.ForeignKey('TypeCompte', on_delete=models.CASCADE)  
     solde = models.DecimalField(max_digits=10, decimal_places=2)  
     date_ouverture = models.DateField()  

@@ -7,14 +7,17 @@ from rest_framework import generics,viewsets,status
 from rest_framework.permissions import AllowAny,IsAuthenticated,IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import DemandeCompteBancaire, Document, TypeDocument,Client
+from .models import DemandeCompteBancaire, Document, TypeDocument,Client,cartebancaire,generate_numero_carte
 from django.http import JsonResponse,HttpResponse
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth import login,authenticate
-from datetime import datetime
-from .serializer import UserSerializer, MyTokenObtainPairSerializer, RegisterSerializer, ClientSerializer, DemandeCompteBancaireSerializer, EmployeSerializer
-
+from datetime import timedelta
+from django.utils import timezone
+import random
+from decimal import Decimal
+from .serializer import UserSerializer, MyTokenObtainPairSerializer, RegisterSerializer, ClientSerializer, DemandeCompteBancaireSerializer, EmployeSerializer ,CarteBancaireSerializer
+from.constants import PLAFONDS_CARTES
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
@@ -161,7 +164,55 @@ class ClientViewSet(viewsets.ModelViewSet):
          return Response({"message": "Connexion réussie", "client_id": client_id}, status=status.HTTP_200_OK)
      else:
          return Response({"error": "Identifiant ou mot de passe incorrect."}, status=status.HTTP_401_UNAUTHORIZED)
+    @action(detail=True, methods=["post"], url_path="demande-carte")
+    def demande_carte(self, request, pk=None):
+        
+        client = self.get_object()  # Récupère le client actuel
+        type_carte = request.data.get("type_carte")
 
+        # Vérifier que le type de carte est valide
+        if type_carte not in PLAFONDS_CARTES:
+            return Response({"error": "Type de carte invalide."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Vérifier que le solde est suffisant (10x le plafond de paiement)
+        plafond_paiement = Decimal(PLAFONDS_CARTES[type_carte]["paiement"])
+        montant_minimum_requis = plafond_paiement * 10
+
+        if client.solde < montant_minimum_requis:
+            return Response(
+                {"error": f"Solde insuffisant. Vous devez avoir au moins {montant_minimum_requis} pour choisir cette carte."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Déduire les frais de carte du solde
+        frais_carte = Decimal("50.00")  # Tu peux ajuster selon le type de carte
+        if client.solde < frais_carte:
+            return Response(
+                {"error": "Solde insuffisant pour payer les frais de carte."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        client.solde -= frais_carte
+        client.save()
+
+        # Création de la carte bancaire
+        carte = cartebancaire.objects.create(
+            client_id=client,
+            numero_carte=generate_numero_carte(),
+            date_ouverture=timezone.now().date(),
+            date_expiration=timezone.now().date() + timedelta(days=2*365),
+            cvc=str(random.randint(100, 999)),
+            type_carte=type_carte,
+            plafond_paiement=Decimal(plafond_paiement),
+            plafond_retrait=Decimal(PLAFONDS_CARTES[type_carte]["retrait"]),
+            frais_carte=frais_carte,
+            frais_payes=True,
+        )
+
+        return Response(
+            {"message": "Carte bancaire créée avec succès.", "carte": CarteBancaireSerializer(carte).data},
+            status=status.HTTP_201_CREATED,
+        )
 
 def verify_email(request, token):
     verification_token = get_object_or_404(EmailVerificationToken, token=token)

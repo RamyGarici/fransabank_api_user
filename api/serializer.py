@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from api.utils import send_verification_email  
-from api.models import User, Profile, DemandeCompteBancaire, Client, Employe
+from api.models import User, Profile, DemandeCompteBancaire, Client, Employe, cartebancaire
 
 
 
@@ -90,3 +90,8 @@ class ClientSerializer(serializers.ModelSerializer):
         model = Client  
         fields = '__all__' 
     
+class CarteBancaireSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = cartebancaire
+        fields = "__all__"
+        read_only_fields = ["numero_carte", "date_ouverture", "date_expiration", "cvc", "frais_payes"]
