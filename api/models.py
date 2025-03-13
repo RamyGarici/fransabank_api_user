@@ -220,7 +220,7 @@ class Client(models.Model):
     email = models.EmailField(unique=True)  
     type_client_id = models.IntegerField(default=1)
     deleted_at = models.DateTimeField(null=True, blank=True)
-    solde = models.DecimalField(max_digits=15, decimal_places=2,null=False)
+    solde = models.DecimalField(max_digits=15, decimal_places=2,null=False,default=1)
   
     password_client = models.CharField(max_length=128, blank=True, null=True)
 
@@ -273,8 +273,9 @@ class Client(models.Model):
 
 def create_client(sender, instance, **kwargs):
     if instance.status == 'approved' and not Client.objects.filter(user=instance.user).exists():
-        Client.objects.create(
-            client_id=Client().generate_unique_id(),
+        # Créer un nouveau client avec les données de la demande
+        client = Client.objects.create(
+            client_id=Client().generate_unique_id(),  # Générer un ID unique pour le client
             user=instance.user,
             demande=instance,
             nom=instance.last_name,
@@ -284,10 +285,12 @@ def create_client(sender, instance, **kwargs):
             numero_identite=instance.numero_identite,
             email=instance.user.email,
             type_client_id=1,
-            password_client = make_password(instance.user.password)
         )
-        client.password_client = instance.user.password
-        client.save()
+        
+        # Assigner le mot de passe du client à partir de l'utilisateur
+        if instance.user.password:
+            client.set_password_client(instance.user.password)  # Utilise la méthode pour hacher le mot de passe
+            client.save()
 post_save.connect(create_client, sender=DemandeCompteBancaire)
 
 def generate_numero_carte():
