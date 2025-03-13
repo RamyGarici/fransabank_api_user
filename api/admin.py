@@ -165,7 +165,7 @@ class EmployeAdmin(BaseAdmin):
     list_filter = ['role', SoftDeleteFilter]
     list_display = ['emp_id','username', 'email', 'first_name', 'last_name', 'role', 'deleted_at', ]
     form = EmployeAdminForm  # Utilisation du formulaire personnalisé
-    search_fields = ('emp_id', 'user__email','user__username',)
+    search_fields = ('emp_id', 'user__email','user__username','user__first_name','user__last_name')
     
 
 
@@ -267,9 +267,17 @@ class DemandeCompteBancaireAdmin(BaseAdmin):
 
 ### 📌 Admin Client ###
 class ClientAdmin(BaseAdmin):
-    list_display = ['user', 'client_id', 'deleted_at']
+    list_display = ['user', 'client_id','user__email','nom','prenom', 'deleted_at']
     inlines = [CarteBancaireInline]
-    search_fields = ("user__email", "client_id")
+    search_fields = (
+        "user__email", 
+        "client_id", 
+        "prenom",  # Prénom de l'utilisateur
+        "nom",   # Nom de l'utilisateur
+        "user__username",    # Nom d'utilisateur
+        "client_id",          # ID de l'utilisateur
+    )
+
     
 
 
@@ -308,8 +316,8 @@ class VideoConferenceAdmin(admin.ModelAdmin):
     list_filter = ("status", "scheduled_at")
     search_fields = ("client__client_id", "client__user__email", "employe__user__email")
     ordering = ("scheduled_at",)
-    raw_id_fields = ("employe",)
-    autocomplete_fields = ("client",)
+    raw_id_fields = ("employe","client")
+  
     readonly_fields = ("meeting_url",)
 
     fieldsets = (
