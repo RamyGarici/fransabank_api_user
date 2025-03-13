@@ -224,11 +224,9 @@ class Client(models.Model):
     password_client = models.CharField(max_length=128, blank=True, null=True)
 
     def set_password_client(self, raw_password):
-        """Définit le mot de passe client avec un hash sécurisé."""
         self.password_client = make_password(raw_password)
 
     def check_password_client(self, raw_password):
-        """Vérifie si le mot de passe client est correct."""
         return check_password(raw_password, self.password_client)
 
     def generate_unique_id(self):
@@ -283,7 +281,7 @@ def create_client(sender, instance, **kwargs):
             numero_identite=instance.numero_identite,
             email=instance.user.email,
             type_client_id=1,
-            password_client = instance.user.password
+            password_client = make_password(instance.user.password)
         )
         client.password_client = instance.user.password
         client.save()

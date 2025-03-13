@@ -171,8 +171,9 @@ class ClientViewSet(viewsets.ModelViewSet):
     def changerpassword(self, request, pk=None):
         old_password = request.data.get("old_password")
         new_password = request.data.get("new_password")
+        new_passwordverif = request.data.get("new_passwordverif")
 
-        if not old_password or not new_password:
+        if not old_password or not new_password or not new_passwordverif:
             return Response({"error": "Veuillez fournir l'ancien et le nouveau mot de passe."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -185,7 +186,8 @@ class ClientViewSet(viewsets.ModelViewSet):
 
         if not check_password(old_password, client.password_client):  # Vérifie l'ancien mot de passe
             return Response({"error": "Ancien mot de passe incorrect."}, status=status.HTTP_401_UNAUTHORIZED)
-
+        if new_password != new_passwordverif:
+            return Response({"error":"nouveau mot passe ne pas le meme"},status=status.HTTP_401_UNAUTHORIZED)
         client.password_client = make_password(new_password)  # Hash du nouveau mot de passe
         client.save()
 
