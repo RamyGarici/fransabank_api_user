@@ -6,7 +6,7 @@ from django.http import HttpResponseRedirect
 from django.contrib.auth.hashers import make_password
 from django import forms
 from django.contrib import messages
-from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, Document, Client, cartebancaire
+from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, Document, Client, cartebancaire,VideoConference
 
 import logging
 
@@ -51,83 +51,7 @@ class BaseAdmin(admin.ModelAdmin):
         print("✅ Suppression autorisée")
         return True
 
-    # def get_actions(self, request):
-    #     """Désactive complètement la suppression pour les agents"""
-    #     actions = super().get_actions(request)
-    #     if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
-    #         if "delete_selected" in actions:
-    #             del actions["delete_selected"]  # Supprime l'action de suppression en masse
-    #     return actions
-
-    # def delete_model(self, request, obj):
-    #     """Empêche les agents bancaires de supprimer tout objet et gère la suppression des objets liés (Employé, Profil, Demande de Compte, Client)."""
-    #     if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
-    #         messages.error(request, "Vous n'avez pas l'autorisation de supprimer cet objet.")
-    #         return  # Bloque la suppression pour l'agent
-
-    #     # Assurez-vous que 'obj' est un utilisateur
-    #     if isinstance(obj, User):
-    #         # Soft delete de l'employé associé (si existant)
-    #         try:
-    #             employe = Employe.objects.get(user=obj)
-    #             employe.deleted_at = now()  # Soft delete de l'employé
-    #             employe.save()
-    #             logger.info(f"Employé {employe} soft supprimé.")
-    #         except Employe.DoesNotExist:
-    #             pass  # Si l'utilisateur n'a pas d'employé associé, on ignore
-
-    #         # Soft delete du profil associé (si existant)
-    #         try:
-    #             profile = Profile.objects.get(user=obj)
-    #             profile.deleted_at = now()  # Soft delete du profil
-    #             profile.save()
-    #             logger.info(f"Profil {profile} soft supprimé.")
-    #         except Profile.DoesNotExist:
-    #             pass  # Si l'utilisateur n'a pas de profil associé, on ignore
-
-    #         # Soft delete des demandes de compte bancaire associées (si existantes)
-    #         demandes = DemandeCompteBancaire.objects.filter(user=obj)
-    #         for demande in demandes:
-    #             demande.deleted_at = now()  # Soft delete de la demande de compte bancaire
-    #             demande.save()
-    #             logger.info(f"Demande de compte bancaire {demande} soft supprimée.")
-
-    #         # Soft delete du client associé (si existant)
-    #         try:
-    #             client = Client.objects.get(user=obj)
-    #             client.deleted_at = now()  # Soft delete du client
-    #             client.save()
-    #             logger.info(f"Client {client} soft supprimé.")
-    #         except Client.DoesNotExist:
-    #             pass  # Si l'utilisateur n'a pas de client associé, on ignore
-
-    #     # Appliquer le soft delete pour l'utilisateur
-    #     obj.deleted_at = now()
-    #     obj.save()
-    #     messages.success(request, "L'élément et ses éléments associés ont été soft supprimés.")
-
-    # def soft_delete_button(self, obj):
-    #     """Affiche 🗑️ pour soft delete et ✅ pour restaurer, sauf pour les agents"""
-    #     if not obj.pk:
-    #         return "-"
-
-    #     request = getattr(obj, "_request", None)
-    #     is_agent = False
-
-    #     if request:
-    #         is_agent = getattr(request.user, "employe_profile", None) and getattr(request.user.employe_profile, "role", None) == "agent"
-    #         if is_agent:
-    #             return "-"  # Cacher complètement le bouton pour les agents
-        
-
-    #     url_name = "restore" if obj.deleted_at else "soft_delete"
-    #     url = reverse(f'admin:{url_name}', args=[obj._meta.model_name, obj.pk])
-    #     emoji = "✅" if obj.deleted_at else "🗑️"
-    #     color = "green" if obj.deleted_at else "red"
-
-    #     return format_html('<a href="{}" style="color: {}; font-size: 18px;">{}</a>', url, color, emoji)
-
-    # soft_delete_button.short_description = "Action"
+   
 
 
 ### 📌 Vue pour gérer le Soft Delete et la restauration ###
@@ -187,6 +111,7 @@ admin.site = admin_site
 ### 📌 Admin Utilisateur ###
 class UserAdmin(BaseAdmin):
     list_display = ['username', 'email', 'is_staff', 'is_superuser', 'deleted_at']
+    search_fields = ['username', 'email', 'first_name', 'last_name']
 
 
 ### 📌 Formulaire Employé ###
@@ -238,8 +163,11 @@ class EmployeAdmin(BaseAdmin):
     """Admin Django pour les employés."""
 
     list_filter = ['role', SoftDeleteFilter]
-    list_display = ['username', 'email', 'first_name', 'last_name', 'role', 'deleted_at', ]
+    list_display = ['emp_id','username', 'email', 'first_name', 'last_name', 'role', 'deleted_at', ]
     form = EmployeAdminForm  # Utilisation du formulaire personnalisé
+    search_fields = ('emp_id', 'user__email','user__username',)
+    
+
 
     fieldsets = (
         ("Informations de l'employé", {
@@ -249,6 +177,7 @@ class EmployeAdmin(BaseAdmin):
             "fields": ("username", "email", "first_name", "last_name", "password"),
         }),
     )
+    readonly_fields=('emp_id',)
 
     def username(self, obj):
         return obj.user.username if obj.user else "-"
@@ -283,7 +212,15 @@ class EmployeAdmin(BaseAdmin):
                 last_name=form.cleaned_data.get("last_name", ""),
                 is_staff=True
             )
+            user.set_password(form.cleaned_data.get("password"))  # Hache le mot de passe
+            user.save()
             obj.user = user  # Associe le nouvel utilisateur à l'Employé
+        else:
+        # Si l'utilisateur existe déjà et qu'un mot de passe a été modifié
+          if "password" in form.changed_data:
+            obj.user.password = make_password(form.cleaned_data["password"])
+            obj.user.save()
+ 
 
         obj.save()  # Sauvegarde l'Employé
 
@@ -298,11 +235,13 @@ class CarteBancaireInline(admin.TabularInline):
 
 ### 📌 Admin Profil ###
 class ProfileAdmin(BaseAdmin):
-    list_display = ['user', 'first_name', 'last_name', 'deleted_at']
-
+    list_display = ['user', 'first_name','last_name','first_name', 'deleted_at']
+    
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.filter(user__is_staff=False)
+    def email(self, obj):
+        return obj.user.email if obj.user else "-"
 
 
 ### 📌 Admin Type Document ###
@@ -330,7 +269,72 @@ class DemandeCompteBancaireAdmin(BaseAdmin):
 class ClientAdmin(BaseAdmin):
     list_display = ['user', 'client_id', 'deleted_at']
     inlines = [CarteBancaireInline]
+    search_fields = ("user__email", "client_id")
+    
 
+
+
+
+
+class VideoConferenceAdminForm(forms.ModelForm):
+    meeting_url_preview = forms.CharField(
+        label="URL de la réunion",
+        required=False,
+        widget=forms.TextInput(attrs={"readonly": "readonly", "style": "width: 100%; font-weight: bold; color: blue;"}),
+    )
+
+    class Meta:
+        model = VideoConference
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["meeting_url_preview"].initial = self.instance.meeting_url
+
+    def clean(self):
+        cleaned_data = super().clean()
+        client = cleaned_data.get("client")
+        employe = cleaned_data.get("employe")
+        if client and employe:
+            generated_url = f"https://meet.jit.si/{client.client_id}{employe.emp_id}"
+            cleaned_data["meeting_url"] = generated_url
+            self.cleaned_data["meeting_url_preview"] = generated_url  # Met à jour le champ affiché
+        return cleaned_data
+
+class VideoConferenceAdmin(admin.ModelAdmin):
+    form = VideoConferenceAdminForm  
+    list_display = ("client", "employe", "scheduled_at", "status", "meeting_url", "plannifier_visio")
+    list_filter = ("status", "scheduled_at")
+    search_fields = ("client__client_id", "client__user__email", "employe__user__email")
+    ordering = ("scheduled_at",)
+    raw_id_fields = ("employe",)
+    autocomplete_fields = ("client",)
+    readonly_fields = ("meeting_url",)
+
+    fieldsets = (
+        (None, {
+            "fields": ("client", "employe", "scheduled_at", "status", "meeting_url_preview"),
+        }),
+    )
+    class Media:
+        js = ("admin/js/video_conference.js",)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(client__isnull=False)
+
+    @admin.display(description="Planification")
+    def plannifier_visio(self, obj):
+        if obj.scheduled_at:
+            return format_html(f"📅 <b>{obj.scheduled_at.strftime('%d/%m/%Y %H:%M')}</b>")
+        return "Non planifiée"
+
+
+
+
+
+   
 
 ### 📌 Enregistrement des modèles ###
 admin.site.register(User, UserAdmin)
@@ -339,3 +343,4 @@ admin.site.register(Profile, ProfileAdmin)
 admin.site.register(TypeDocument, TypeDocumentAdmin)
 admin.site.register(DemandeCompteBancaire, DemandeCompteBancaireAdmin)
 admin.site.register(Client, ClientAdmin)
+admin_site.register(VideoConference, VideoConferenceAdmin)

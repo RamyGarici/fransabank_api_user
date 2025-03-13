@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.safestring import mark_safe
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save,pre_delete
@@ -224,9 +225,11 @@ class Client(models.Model):
     password_client = models.CharField(max_length=128, blank=True, null=True)
 
     def set_password_client(self, raw_password):
+      
         self.password_client = make_password(raw_password)
 
     def check_password_client(self, raw_password):
+       
         return check_password(raw_password, self.password_client)
 
     def generate_unique_id(self):
@@ -571,6 +574,8 @@ class ResultatIA(models.Model):
 
 
 
+print("Mise à jour terminée !")
+
 class Employe(models.Model):
     ROLE_CHOICES = [
         ('agent', 'Agent Bancaire'),
@@ -580,8 +585,20 @@ class Employe(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employe_profile", null=True, blank=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='agent')
     deleted_at = models.DateTimeField(null=True, blank=True)
+    emp_id = models.CharField(max_length=10, unique=True, primary_key=True, editable=False)
+    def generate_unique_emp_id(self):
+        """ Génère un emp_id unique sous la forme EMP123456 """
+        while True:
+            new_id = f"EMP{str(uuid.uuid4().int)[:6]}"
+            if not Employe.objects.filter(emp_id=new_id).exists():
+                return new_id
 
     def save(self, *args, **kwargs):
+        # Générer un `employee_id` unique si inexistant
+        if not self.emp_id:
+            self.emp_id = self.generate_unique_emp_id()
+
+        # Créer automatiquement un utilisateur si `user` est vide
         if not self.user:
             user = User.objects.create(
                 username=f"emp_{int(now().timestamp())}",
@@ -589,8 +606,9 @@ class Employe(models.Model):
             )
             self.user = user
 
-        if not self.user.is_staff:
-            self.user.is_staff = True  # Mark the user as an employee
+        # S'assurer que l'utilisateur est bien un staff (employé)
+        if self.user and not self.user.is_staff:
+            self.user.is_staff = True
             self.user.save()
 
         super().save(*args, **kwargs)
@@ -623,6 +641,51 @@ class Employe(models.Model):
      # Supprimer l'instance pour éviter qu'elle continue d'exister en mémoire
   
     # Utilisation de la méthode soft_delete() de l'employé
+
+
+
+
+
+class VideoConference(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "En attente"),
+        ("done", "Terminée"),
+        ("canceled", "Annulée"),
+    ]
+
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="conferences_client")
+    employe = models.ForeignKey(Employe, on_delete=models.CASCADE, related_name="conferences_employe",to_field="emp_id")
+    meeting_url = models.TextField(blank=True, null=True)
+    scheduled_at = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("client", "employe", "status")  
+
+    def save(self, *args, **kwargs):
+     """S'assure que client et employe existent avant de créer l'URL"""
+     if not self.client or not self.employe:
+        raise ValueError("Le client et l'employé doivent être définis avant d'enregistrer.")
+
+     # Vérifie que le client et l'employé existent bien en base de données
+     if not Client.objects.filter(client_id=self.client.client_id).exists():
+        raise ValueError(f"Le client avec l'ID {self.client.client_id} n'existe pas.")
+    
+     if not Employe.objects.filter(emp_id=self.employe.emp_id).exists():
+        raise ValueError(f"L'employé avec l'ID {self.employe.emp_id} n'existe pas.")
+
+     if not self.meeting_url:
+        self.meeting_url = f"https://meet.jit.si/{self.client.client_id}{self.employe.emp_id}"
+
+     super().save(*args, **kwargs)
+
+
+
+
+
+
+
 
 
 
