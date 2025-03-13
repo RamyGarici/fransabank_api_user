@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.db import transaction
 from api.models import User, Profile,Client,DemandeCompteBancaire,EmailVerificationToken
 from api.serializer import UserSerializer, MyTokenObtainPairSerializer, RegisterSerializer,ClientSerializer,DemandeCompteBancaireSerializer
 from rest_framework.decorators import api_view,action,permission_classes
@@ -7,6 +8,7 @@ from rest_framework import generics,viewsets,status
 from rest_framework.permissions import AllowAny,IsAuthenticated,IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.contrib.auth.hashers import make_password, check_password
 from .models import DemandeCompteBancaire, Document, TypeDocument,Client,cartebancaire,generate_numero_carte
 from django.http import JsonResponse,HttpResponse
 from django.core.mail import send_mail
@@ -164,6 +166,31 @@ class ClientViewSet(viewsets.ModelViewSet):
          return Response({"message": "Connexion réussie", "client_id": client_id}, status=status.HTTP_200_OK)
      else:
          return Response({"error": "Identifiant ou mot de passe incorrect."}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    @action(detail=True, methods=["post"], url_path="changerpassword")
+    def changerpassword(self, request, pk=None):
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not old_password or not new_password:
+            return Response({"error": "Veuillez fournir l'ancien et le nouveau mot de passe."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            client = self.get_object()  # Récupère automatiquement l'objet Client
+        except Client.DoesNotExist:
+            return Response({"error": "Client introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        print(f"Mot de passe fourni: {old_password}")
+        print(f"Mot de passe en base: {client.password_client}")
+
+        if not check_password(old_password, client.password_client):  # Vérifie l'ancien mot de passe
+            return Response({"error": "Ancien mot de passe incorrect."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        client.password_client = make_password(new_password)  # Hash du nouveau mot de passe
+        client.save()
+
+        return Response({"message": "Mot de passe modifié avec succès."}, status=status.HTTP_200_OK)
+    
     @action(detail=True, methods=["post"], url_path="demande-carte")
     def demande_carte(self, request, pk=None):
         
@@ -213,6 +240,41 @@ class ClientViewSet(viewsets.ModelViewSet):
             {"message": "Carte bancaire créée avec succès.", "carte": CarteBancaireSerializer(carte).data},
             status=status.HTTP_201_CREATED,
         )
+    @action(detail=True,methods=["POST"],url_path="consulter_solde")
+    def consulter_solde(self,request,pk=None):
+        try:
+            client = self.get_object()
+            return Response({"solde": client.solde}, status=200)
+        except client.DoesNotExist:
+            return Response({"error": "Compte bancaire introuvable"}, status=404)
+        
+    @action(detail=True,methods=["POST"],url_path="virement")
+    def virement(self,request,pk=None):
+        try:
+            client =self.get_object()
+            clientdes = request.data.get("comptedes")
+            montant = request.data.get("montant")
+
+            if montant is None or Decimal(montant) <= 0:
+                return Response({"error":"montant invalide"},status=400)
+
+            if Decimal (client.solde) < Decimal(montant):
+                return Response({"error": "Solde insuffisant"}, status=400)
+            
+            with transaction.atomic():
+                client.solde -= Decimal(montant)
+                client.save()
+
+            return Response({"message": "Virement effectué avec succès"}, status=200)
+        except client.DoesNotExist:
+            return Response({"error": "Compte source introuvable"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+        
+    
+
+
+
 
 def verify_email(request, token):
     verification_token = get_object_or_404(EmailVerificationToken, token=token)
