@@ -385,31 +385,43 @@ class VideoConferenceAdmin(admin.ModelAdmin):
         current_time = now().astimezone(get_current_timezone())  # Heure actuelle en local
         time_diff_seconds = (meeting_time - current_time).total_seconds()  # Différence en secondes
         time_diff_minutes = int(time_diff_seconds / 60)  # Différence en minutes
-        hours, minutes = divmod(time_diff_minutes, 60)
-        end_time = meeting_time + timedelta(minutes=30)  # Convertir en heures et minutes  # Différence en minutes
+        hours, minutes = divmod(time_diff_minutes, 60)  # Convertir en heures et minutes
+        end_time = meeting_time + timedelta(minutes=30)  # Fin de validité du lien
         remaining_minutes = int((end_time - current_time).total_seconds() / 60)
-      
 
         if hours > 0:
             time_display = f"{hours} heure{'s' if hours > 1 else ''} {minutes} minute{'s' if minutes > 1 else ''}"
         else:
             time_display = f"{minutes} minute{'s' if minutes > 1 else ''}"
 
-        
-
-        if -30<=time_diff_minutes<0:
-            return format_html('<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Retard (Disponible encore {}min )</a>',obj.meeting_url,remaining_minutes)
-        
-        elif 0<= time_diff_minutes <= 30:
+        # ✅ Si la réunion est annulée ou terminée, afficher "Expiré"
+        if obj.status in ["canceled", "done"]:
             return format_html(
-                '<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Démarrer (Commence dans {} )</a>',
+                '<a href="#" class="button" style="background-color: lightcoral; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🚫 Expiré</a>'
+            )
+
+        # ✅ Si la réunion est en retard mais encore accessible (moins de 30 min après), afficher "Retard"
+        if -30 <= time_diff_minutes < 0:
+            return format_html(
+                '<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Retard (Disponible encore {} min)</a>',
+                obj.meeting_url, remaining_minutes
+            )
+
+        # ✅ Si la réunion commence bientôt (entre 0 et 30 min avant), afficher "Démarrer"
+        elif 0 <= time_diff_minutes <= 30:
+            return format_html(
+                '<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Démarrer (Commence dans {})</a>',
                 obj.meeting_url, time_display
             )
+
+        # ✅ Si la réunion est prévue dans longtemps, afficher "Commence dans X temps"
         elif time_diff_minutes > 30:
             return format_html(
-                '<a href="#" class="button" style="background-color: gray; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">⏳ Commence dans {} </a>',
+                '<a href="#" class="button" style="background-color: gray; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">⏳ Commence dans {}</a>',
                 time_display
             )
+
+        # 🚫 Si la réunion est expirée (+30 min après l’heure prévue), afficher "Expiré"
         else:
             return format_html(
                 '<a href="#" class="button" style="background-color: lightcoral; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🚫 Expiré</a>'
@@ -418,6 +430,7 @@ class VideoConferenceAdmin(admin.ModelAdmin):
      return format_html(
         '<a href="#" class="button" style="background-color: lightcoral; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🚫 Pas de lien</a>'
     )
+
 
 
     def get_queryset(self, request):
@@ -485,11 +498,17 @@ class VideoConferenceAdmin(admin.ModelAdmin):
 
 
     def get_readonly_fields(self, request, obj=None):
+     if obj:  # Vérifie si on est en mode édition
+        # ✅ Si la vidéoconférence est expirée (soft deleted), seul `status` est modifiable
+        if obj.deleted_at:
+            return [field.name for field in self.model._meta.fields if field.name != "status"]
      """Permet de modifier uniquement le statut pour les agents, mais pas en création."""
      if obj:  # Vérifie si l'objet existe (mode édition)
         if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
             return [field.name for field in self.model._meta.fields if field.name != "status"]
      return []  # Si c'est une création, aucun champ n'est en lecture seule
+     if obj and obj.status == "canceled":  # ✅ Si la vidéoconférence est annulée
+        return [field.name for field in self.model._meta.fields]  # Tout devient reado
 
    
  

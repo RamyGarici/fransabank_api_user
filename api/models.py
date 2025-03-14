@@ -730,29 +730,34 @@ class VideoConference(models.Model):
     
 
     def clean(self):
-     """Validation pour empêcher une date passée et vérifier la contrainte d'unicité, sauf en cas de suppression."""
+     """Validation pour empêcher une date passée sauf si on ne modifie que le statut."""
 
-     # ✅ Ignorer la validation si l'objet est soft supprimé
+    # ✅ Ignorer la validation si la vidéoconférence est supprimée (soft delete)
      if self.deleted_at:
-        return
+       return
 
      if self.scheduled_at is None:
         raise ValidationError("La date de la vidéoconférence doit être spécifiée.")
 
-     # ✅ Empêcher une vidéoconférence dans le passé
-     if self.scheduled_at < now():
-        raise ValidationError("La date de la vidéoconférence ne peut pas être dans le passé.")
+    # ✅ Vérifier si la modification concerne uniquement le statut
+     if self.pk:  # Vérifie si l'objet existe déjà
+        existing_instance = VideoConference.objects.get(pk=self.pk)
+        if existing_instance.scheduled_at != self.scheduled_at:  # La date a changé ?
+            if self.scheduled_at < now():
+                raise ValidationError("La date de la vidéoconférence ne peut pas être dans le passé.")
 
-    # ✅ Vérification de l'unicité pour les vidéoconférences 'pending' actives
+    # ✅ Vérification de l'unicité uniquement pour les vidéoconférences actives et futures
      if VideoConference.objects.filter(
         client=self.client,
         employe=self.employe,
         status="pending",
-        deleted_at__isnull=True  # Ne prendre que les vidéoconférences non supprimées
-     ).exclude(pk=self.pk).exists():  # ✅ Exclure la vidéoconférence actuelle en cas de modification
+        deleted_at__isnull=True,  # Ne prendre que les vidéoconférences non supprimées
+        scheduled_at__gte=now()   # ✅ Ignorer les vidéoconférences expirées !
+    ).exclude(pk=self.pk).exists():
         raise ValidationError("Il existe déjà une vidéoconférence en attente pour ce client et cet employé.")
 
      super().clean()
+
 
 
     def save(self, *args, **kwargs):
@@ -778,6 +783,7 @@ class VideoConference(models.Model):
     def soft_delete(self):
         """Marque la vidéoconférence comme supprimée au lieu de la supprimer réellement."""
         self.deleted_at = timezone.now()
+        self.status="canceled"
         self.save()
 
 
