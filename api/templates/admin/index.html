@@ -1,0 +1,10 @@
+{% extends 'admin/base_site.html' %}
+{% block sidebar %}
+    {{ block.super }}
+    <div>
+        <a href="{% url 'admin:api_videoconference_changelist' %}">
+            📹 Visioconférences <span style="background-color: red; color: white; padding: 3px 8px; border-radius: 10px;">
+            {{ video_conference_badge|default:"(0)" }}</span>
+        </a>
+    </div>
+{% endblock %}

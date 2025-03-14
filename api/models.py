@@ -6,7 +6,7 @@ from django.db.models.signals import post_save,pre_delete
 from django.dispatch import receiver
 from django.forms import ValidationError
 from datetime import datetime,timedelta
-from django.db.models import  UniqueConstraint
+from django.db.models import  UniqueConstraint,Q
 from django.utils.timezone import now
 from django.utils import timezone
 import secrets
@@ -16,6 +16,7 @@ from django.core.exceptions import PermissionDenied
 import random
 from django.contrib.auth.hashers import make_password, check_password
 from decimal import Decimal
+from django.utils.timezone import make_aware, get_current_timezone
 from .constants import PLAFONDS_CARTES
 
 class User(AbstractUser):
@@ -597,19 +598,27 @@ class Employe(models.Model):
                 return new_id
 
     def save(self, *args, **kwargs):
-        # Générer un `employee_id` unique si inexistant
+        # Générer un `emp_id` unique si inexistant
         if not self.emp_id:
             self.emp_id = self.generate_unique_emp_id()
 
-        # Créer automatiquement un utilisateur si `user` est vide
-        if not self.user:
-            user = User.objects.create(
-                username=f"emp_{int(now().timestamp())}",
-                is_staff=True
-            )
-            self.user = user
+        # Vérifier si un utilisateur existe avec cet email
+        if self.user and User.objects.filter(email=self.user.email).exclude(id=self.user.id).exists():
+            raise ValidationError(f"Un utilisateur avec l'email {self.user.email} existe déjà.")
 
-        # S'assurer que l'utilisateur est bien un staff (employé)
+        # Si aucun utilisateur n'est associé, en créer un
+        if not self.user:
+            try:
+                user = User.objects.create(
+                    username=f"emp_{int(now().timestamp())}",
+                    email="",  # Pas d'email par défaut
+                    is_staff=True
+                )
+                self.user = user
+            except IntegrityError:
+                raise ValidationError(f"L'utilisateur avec cet email existe déjà.")
+
+        # Assurer que l'utilisateur est bien un staff (employé)
         if self.user and not self.user.is_staff:
             self.user.is_staff = True
             self.user.save()
@@ -649,6 +658,10 @@ class Employe(models.Model):
 
 
 
+from django.core.exceptions import ValidationError
+from django.utils.timezone import now
+from django.db import models
+
 class VideoConference(models.Model):
     STATUS_CHOICES = [
         ("pending", "En attente"),
@@ -657,31 +670,74 @@ class VideoConference(models.Model):
     ]
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="conferences_client")
-    employe = models.ForeignKey(Employe, on_delete=models.CASCADE, related_name="conferences_employe",to_field="emp_id")
+    employe = models.ForeignKey(Employe, on_delete=models.CASCADE, related_name="conferences_employe", to_field="emp_id")
     meeting_url = models.TextField(blank=True, null=True)
     scheduled_at = models.DateTimeField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
-    class Meta:
-        unique_together = ("client", "employe", "status")  
+    
+    
+
+    def clean(self):
+     """Validation pour empêcher une date passée et vérifier la contrainte d'unicité, sauf en cas de suppression."""
+
+     # ✅ Ignorer la validation si l'objet est soft supprimé
+     if self.deleted_at:
+        return
+
+     if self.scheduled_at is None:
+        raise ValidationError("La date de la vidéoconférence doit être spécifiée.")
+
+     # ✅ Empêcher une vidéoconférence dans le passé
+     if self.scheduled_at < now():
+        raise ValidationError("La date de la vidéoconférence ne peut pas être dans le passé.")
+
+    # ✅ Vérification de l'unicité pour les vidéoconférences 'pending' actives
+     if VideoConference.objects.filter(
+        client=self.client,
+        employe=self.employe,
+        status="pending",
+        deleted_at__isnull=True  # Ne prendre que les vidéoconférences non supprimées
+     ).exclude(pk=self.pk).exists():  # ✅ Exclure la vidéoconférence actuelle en cas de modification
+        raise ValidationError("Il existe déjà une vidéoconférence en attente pour ce client et cet employé.")
+
+     super().clean()
+
 
     def save(self, *args, **kwargs):
-     """S'assure que client et employe existent avant de créer l'URL"""
-     if not self.client or not self.employe:
-        raise ValueError("Le client et l'employé doivent être définis avant d'enregistrer.")
+        """Vérifie les contraintes avant la sauvegarde"""
+        self.clean()  # Appelle la validation
 
-     # Vérifie que le client et l'employé existent bien en base de données
-     if not Client.objects.filter(client_id=self.client.client_id).exists():
-        raise ValueError(f"Le client avec l'ID {self.client.client_id} n'existe pas.")
+        if not self.client or not self.employe:
+            raise ValueError("Le client et l'employé doivent être définis avant d'enregistrer.")
+
+        # Vérifie que le client et l'employé existent bien en base de données
+        if not Client.objects.filter(client_id=self.client.client_id).exists():
+            raise ValueError(f"Le client avec l'ID {self.client.client_id} n'existe pas.")
+
+        if not Employe.objects.filter(emp_id=self.employe.emp_id).exists():
+            raise ValueError(f"L'employé avec l'ID {self.employe.emp_id} n'existe pas.")
+
+        if not self.meeting_url:
+            self.meeting_url = f"https://meet.jit.si/{self.client.client_id}{self.employe.emp_id}"
+        
+        
+
+        super().save(*args, **kwargs)
+    def soft_delete(self):
+        """Marque la vidéoconférence comme supprimée au lieu de la supprimer réellement."""
+        self.deleted_at = timezone.now()
+        self.save()
+
+
+
+    def delete(self, *args, **kwargs):
+        """Applique le soft delete au lieu d’une suppression définitive."""
+        self.soft_delete()
     
-     if not Employe.objects.filter(emp_id=self.employe.emp_id).exists():
-        raise ValueError(f"L'employé avec l'ID {self.employe.emp_id} n'existe pas.")
 
-     if not self.meeting_url:
-        self.meeting_url = f"https://meet.jit.si/{self.client.client_id}{self.employe.emp_id}"
-
-     super().save(*args, **kwargs)
 
 
 

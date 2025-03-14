@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth.models import Group
-from api.models import Employe,Profile
+from api.models import Employe,Profile,VideoConference,Client
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from api.models import DemandeCompteBancaire
@@ -21,7 +21,7 @@ def setup_roles():
 
     # Donner aux agents bancaires uniquement les permissions de lecture
     agent_permissions = Permission.objects.filter(
-        content_type__model__in=["profile", "demandecomptebancaire", "client", "typedocument"],
+        content_type__model__in=["profile", "demandecomptebancaire", "client", "typedocument","videoconference"],
         codename__startswith="view_"  # Seulement lecture
     )
     agent_group.permissions.set(agent_permissions)
@@ -32,6 +32,17 @@ def setup_roles():
         codename="change_demandecomptebancaire",
         content_type=demande_ct
     )
+    video_conf_ct = ContentType.objects.get_for_model(VideoConference)  # Assure-toi que c'est bien le bon modèle
+    add_permission, _ = Permission.objects.get_or_create(
+        codename="add_videoconference",
+         content_type=video_conf_ct
+)
+    change_video_permission, _ = Permission.objects.get_or_create(
+     codename="change_videoconference",
+     content_type=video_conf_ct
+)
+    agent_group.permissions.add(change_video_permission)
+    agent_group.permissions.add(add_permission)
     agent_group.permissions.add(change_permission)
     agent_group.permissions.remove(*Permission.objects.filter(codename__startswith="delete_"))
     
@@ -63,3 +74,16 @@ def delete_user_when_profile_deleted(sender, instance, **kwargs):
         instance.user.delete()
     else:
         print("Aucun utilisateur associé à ce profil.")
+
+
+@receiver(pre_delete, sender=Client)
+def soft_delete_client_conferences(sender, instance, **kwargs):
+    """Soft delete toutes les vidéoconférences associées à un client supprimé."""
+    for conference in instance.conferences_client.all():
+        conference.soft_delete()
+
+@receiver(pre_delete, sender=Employe)
+def soft_delete_employe_conferences(sender, instance, **kwargs):
+    """Soft delete toutes les vidéoconférences associées à un employé supprimé."""
+    for conference in instance.conferences_employe.all():
+        conference.soft_delete()

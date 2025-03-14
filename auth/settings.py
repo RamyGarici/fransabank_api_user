@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from django.utils.timezone import activate
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -74,11 +77,12 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'fr'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Algiers'
 USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -144,3 +148,16 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # Frontend URL
 FRONTEND_URL = "https://1853-105-97-3-132.ngrok-free.app"
 
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Fransabank Administration",
+    "site_header": "Fransabank Administration",
+    "site_brand": "Fransabank Administration",
+    "welcome_sign": "Bienvenue sur l'Admin Fransabak",
+    "copyright": "© 2025 Fransabank",
+    
+}
+
+
+
+os.environ['TZ'] = 'Africa/Algiers'

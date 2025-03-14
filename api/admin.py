@@ -1,11 +1,15 @@
 from django.contrib import admin
+from django.db import models
 from django.utils.html import format_html
-from django.utils.timezone import now
+from django.utils.timezone import now,timedelta,localtime
 from django.urls import path, reverse
 from django.http import HttpResponseRedirect
 from django.contrib.auth.hashers import make_password
 from django import forms
+from django.forms import TextInput
 from django.contrib import messages
+from django.utils.timezone import is_aware, make_aware,get_current_timezone
+
 from api.models import User, Employe, Profile, TypeDocument, DemandeCompteBancaire, Document, Client, cartebancaire,VideoConference
 
 import logging
@@ -102,10 +106,45 @@ class MyAdminSite(admin.AdminSite):
             obj.save()
             messages.success(request, "L'élément a été restauré.")
         return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/admin/'))
+    def index(self, request, extra_context=None):
+     """Ajoute le badge rouge des visioconférences dans l’admin Django."""
+     extra_context = extra_context or {}
+
+    # Log pour voir si la fonction est exécutée
+     logger.info("➡️ Méthode index() exécutée")
+
+    # Filtrer les visios prévues dans l’heure
+     if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+        upcoming_count = VideoConference.objects.filter(
+            employe=request.user.employe_profile,
+            scheduled_at__range=(now(), now() + timedelta(hours=1))
+        ).count()
+     else:
+        upcoming_count = VideoConference.objects.filter(
+            scheduled_at__range=(now(), now() + timedelta(hours=1))
+        ).count()
+
+    # Log du nombre de visios trouvées
+     logger.info(f"📅 Nombre de visios trouvées : {upcoming_count}")
+
+    # Si une visio est prévue dans l'heure, ajoute le badge rouge
+     if upcoming_count > 0:
+        extra_context["video_conference_badge"] = format_html(
+            '<span class="badge" style="background-color: red; color: white; font-weight: bold; padding: 3px 8px; border-radius: 10px;">{}</span>',
+            upcoming_count
+        )
+        logger.info("✅ Badge ajouté")
+        extra_context["video_conference_badge"] = upcoming_count
 
 
-admin_site = MyAdminSite()
-admin.site = admin_site
+
+     return super().index(request, extra_context)
+    
+
+
+
+
+
 
 
 ### 📌 Admin Utilisateur ###
@@ -136,6 +175,12 @@ class EmployeAdminForm(forms.ModelForm):
             self.fields['username'].initial = self.instance.user.username
             self.fields['first_name'].initial = self.instance.user.first_name
             self.fields['last_name'].initial = self.instance.user.last_name
+    def clean_email(self):
+        """Empêche la création/modification d'un employé si un utilisateur avec cet email existe déjà."""
+        email = self.cleaned_data.get("email")
+        if User.objects.filter(email=email).exclude(id=self.instance.user_id if self.instance and self.instance.user else None).exists():
+            raise forms.ValidationError(f"Un utilisateur avec l'email {email} existe déjà.")
+        return email
 
     def save(self, commit=True):
         """Sauvegarde l'utilisateur et l'employé ensemble."""
@@ -288,7 +333,7 @@ class VideoConferenceAdminForm(forms.ModelForm):
     meeting_url_preview = forms.CharField(
         label="URL de la réunion",
         required=False,
-        widget=forms.TextInput(attrs={"readonly": "readonly", "style": "width: 100%; font-weight: bold; color: blue;"}),
+        widget=forms.TextInput(attrs={"readonly": "readonly", "style": "width: 100%; font-weight: bold; color: black;"}),
     )
 
     class Meta:
@@ -312,11 +357,12 @@ class VideoConferenceAdminForm(forms.ModelForm):
 
 class VideoConferenceAdmin(admin.ModelAdmin):
     form = VideoConferenceAdminForm  
-    list_display = ("client", "employe", "scheduled_at", "status", "meeting_url", "plannifier_visio")
-    list_filter = ("status", "scheduled_at")
+    list_display = ("client", "employe", "status","start_meeting_button" , "plannifier_visio")
+    list_filter = ("status", "scheduled_at",SoftDeleteFilter)
     search_fields = ("client__client_id", "client__user__email", "employe__user__email")
     ordering = ("scheduled_at",)
     raw_id_fields = ("employe","client")
+   
   
     readonly_fields = ("meeting_url",)
 
@@ -328,15 +374,120 @@ class VideoConferenceAdmin(admin.ModelAdmin):
     class Media:
         js = ("admin/js/video_conference.js",)
 
+
+   
+
+    def start_meeting_button(self, obj):
+     print(f"Timezone actuelle : {get_current_timezone()}")      
+    
+     if obj.meeting_url and obj.scheduled_at:
+        meeting_time = obj.scheduled_at.astimezone(get_current_timezone())  # Heure prévue en local
+        current_time = now().astimezone(get_current_timezone())  # Heure actuelle en local
+        time_diff_seconds = (meeting_time - current_time).total_seconds()  # Différence en secondes
+        time_diff_minutes = int(time_diff_seconds / 60)  # Différence en minutes
+        hours, minutes = divmod(time_diff_minutes, 60)  # Convertir en heures et minutes  # Différence en minutes
+
+        if hours > 0:
+            time_display = f"{hours} heure{'s' if hours > 1 else ''} {minutes} minute{'s' if minutes > 1 else ''}"
+        else:
+            time_display = f"{minutes} minute{'s' if minutes > 1 else ''}"
+
+        
+
+        if 0 <= time_diff_minutes <= 30:
+            return format_html(
+                '<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Démarrer (Commence dans {} min)</a>',
+                obj.meeting_url, time_display
+            )
+        elif time_diff_minutes > 30:
+            return format_html(
+                '<a href="#" class="button" style="background-color: gray; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">⏳ Commence dans {} min</a>',
+                time_display
+            )
+        else:
+            return format_html(
+                '<a href="#" class="button" style="background-color: lightcoral; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🚫 Expiré</a>'
+            )
+
+     return format_html(
+        '<a href="#" class="button" style="background-color: lightcoral; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🚫 Pas de lien</a>'
+    )
+
+
     def get_queryset(self, request):
+        """Filtrer les visioconférences pour que l'agent bancaire ne voit que celles où il est employé."""
         qs = super().get_queryset(request)
-        return qs.filter(client__isnull=False)
+        current_time = now()
+
+    # Ajouter une annotation pour identifier les réunions expirées (1 = expiré, 0 = actif)
+        qs = qs.annotate(
+        is_expired=models.Case(
+            models.When(scheduled_at__lt=current_time, then=1),  # Expiré → 1
+            default=0,  # Non expiré → 0
+            output_field=models.IntegerField(),
+        )
+    )
+
+        # Si c'est un agent bancaire, il ne voit que ses propres visioconférences
+        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            return qs.filter(employe=request.user.employe_profile)
+
+        # Les admins et autres employés voient tout
+        return qs.order_by('is_expired', 'scheduled_at')
+    
 
     @admin.display(description="Planification")
     def plannifier_visio(self, obj):
-        if obj.scheduled_at:
-            return format_html(f"📅 <b>{obj.scheduled_at.strftime('%d/%m/%Y %H:%M')}</b>")
-        return "Non planifiée"
+     if obj.scheduled_at:
+        local_time = localtime(obj.scheduled_at)  # Convertit en timezone locale
+        return format_html(f"📅 <b>{local_time.strftime('%d/%m/%Y %H:%M')}</b>")
+     return "Non planifiée"
+    def get_form(self, request, obj=None, **kwargs):
+        """Pré-remplit automatiquement le champ employé avec l'utilisateur connecté s'il est agent bancaire."""
+        form = super().get_form(request, obj, **kwargs)
+        class CustomForm(form):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+
+                # Vérifier si l'utilisateur est un agent bancaire
+                if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent" and "employe" in self.fields:
+                    self.fields["employe"].initial = request.user.employe_profile  # Remplit le champ avec lui-même
+                    self.fields["employe"].widget.attrs["readonly"] = True  # Empêche la modification
+                    self.fields["employe"].widget = TextInput(attrs={"readonly": "readonly", "style": "background: #f0f0f0;"})
+
+        return CustomForm
+    def get_model_perms(self, request):
+     """Ajoute un badge rouge à la section Visio si des réunions sont prévues dans l'heure."""
+     perms = super().get_model_perms(request)
+
+     if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+        upcoming_count = VideoConference.objects.filter(
+            employe=request.user.employe_profile,
+            scheduled_at__range=(now(), now() + timedelta(hours=1))
+        ).count()
+     else:
+        upcoming_count = VideoConference.objects.filter(
+            scheduled_at__range=(now(), now() + timedelta(hours=1))
+        ).count()
+
+     if upcoming_count > 0:
+        perms = perms.copy()  # Copie les permissions pour éviter de modifier l'original
+        perms["view"] = True  # S'assure que l'utilisateur peut voir le modèle
+        self.admin_site._registry[self.model].custom_badge = f'<span class="badge" style="background:red;color:white;padding:2px 6px;">{upcoming_count}</span>'
+    
+     return perms
+
+
+    def get_readonly_fields(self, request, obj=None):
+     """Permet de modifier uniquement le statut pour les agents, mais pas en création."""
+     if obj:  # Vérifie si l'objet existe (mode édition)
+        if hasattr(request.user, "employe_profile") and request.user.employe_profile.role == "agent":
+            return [field.name for field in self.model._meta.fields if field.name != "status"]
+     return []  # Si c'est une création, aucun champ n'est en lecture seule
+
+   
+ 
+    
 
 
 
@@ -345,6 +496,8 @@ class VideoConferenceAdmin(admin.ModelAdmin):
    
 
 ### 📌 Enregistrement des modèles ###
+admin_site = MyAdminSite()
+admin.site = admin_site
 admin.site.register(User, UserAdmin)
 admin.site.register(Employe, EmployeAdmin)
 admin.site.register(Profile, ProfileAdmin)
