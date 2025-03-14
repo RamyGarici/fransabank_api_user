@@ -256,6 +256,10 @@ class Client(models.Model):
         if hasattr(self, 'compte_set'):
          for compte in self.compte_set.all():
             compte.soft_delete()
+        if hasattr(self, "conferences_client"):
+         for conference in self.conferences_client.all():
+            conference.soft_delete()
+    
 
     def delete(self, *args, **kwargs):
         request = kwargs.get("request")
@@ -265,6 +269,32 @@ class Client(models.Model):
         if hasattr(self, "user") and self.user:
           self.user.deleted_at = now()  # Marquer l'utilisateur comme supprimé
           self.user.save(update_fields=["deleted_at"])  # Sauvegarder uniquement ce champ
+         
+
+    def restore(self):
+     """Restaure un client et ses vidéoconférences associées"""
+     self.deleted_at = None
+     self.save()
+
+
+     if hasattr(self, "conferences_client"):
+        for conference in self.conferences_client.all():
+            conference.deleted_at = None
+            conference.save()
+
+   
+     if hasattr(self, "compte_set"):
+        for compte in self.compte_set.all():
+            compte.deleted_at = None
+            compte.save()
+
+
+     if hasattr(self, "user") and self.user:
+        self.user.deleted_at = None
+        self.user.save(update_fields=["deleted_at"])
+
+        
+      
 
     
         
@@ -649,10 +679,29 @@ class Employe(models.Model):
      if hasattr(self, "user") and self.user:
         self.user.deleted_at = now()  # Marquer l'utilisateur comme supprimé
         self.user.save(update_fields=["deleted_at"])  # Sauvegarder uniquement ce champ
+     if hasattr(self, "conferences_employe"):
+        for conference in self.conferences_employe.all():
+            conference.soft_delete()
 
      # Supprimer l'instance pour éviter qu'elle continue d'exister en mémoire
   
     # Utilisation de la méthode soft_delete() de l'employé
+    def restore(self):
+     """Restaure un employé et ses vidéoconférences"""
+     self.deleted_at = None
+     self.save()
+
+    # ✅ Restaurer les vidéoconférences associées
+     if hasattr(self, "conferences_employe"):
+        for conference in self.conferences_employe.all():
+            conference.deleted_at = None
+            conference.save()
+
+    # ✅ Restaurer l'utilisateur associé
+     if hasattr(self, "user") and self.user:
+        self.user.deleted_at = None
+        self.user.save(update_fields=["deleted_at"])
+
 
 
 

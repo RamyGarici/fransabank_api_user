@@ -76,14 +76,3 @@ def delete_user_when_profile_deleted(sender, instance, **kwargs):
         print("Aucun utilisateur associé à ce profil.")
 
 
-@receiver(pre_delete, sender=Client)
-def soft_delete_client_conferences(sender, instance, **kwargs):
-    """Soft delete toutes les vidéoconférences associées à un client supprimé."""
-    for conference in instance.conferences_client.all():
-        conference.soft_delete()
-
-@receiver(pre_delete, sender=Employe)
-def soft_delete_employe_conferences(sender, instance, **kwargs):
-    """Soft delete toutes les vidéoconférences associées à un employé supprimé."""
-    for conference in instance.conferences_employe.all():
-        conference.soft_delete()

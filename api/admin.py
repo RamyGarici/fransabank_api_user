@@ -394,14 +394,14 @@ class VideoConferenceAdmin(admin.ModelAdmin):
 
         
 
-        if 0 <= time_diff_minutes <= 30:
+        if -30 <= time_diff_minutes <= 30:
             return format_html(
-                '<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Démarrer (Commence dans {} min)</a>',
+                '<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Démarrer (Commence dans {} )</a>',
                 obj.meeting_url, time_display
             )
         elif time_diff_minutes > 30:
             return format_html(
-                '<a href="#" class="button" style="background-color: gray; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">⏳ Commence dans {} min</a>',
+                '<a href="#" class="button" style="background-color: gray; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">⏳ Commence dans {} </a>',
                 time_display
             )
         else:
