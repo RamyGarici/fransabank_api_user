@@ -385,7 +385,10 @@ class VideoConferenceAdmin(admin.ModelAdmin):
         current_time = now().astimezone(get_current_timezone())  # Heure actuelle en local
         time_diff_seconds = (meeting_time - current_time).total_seconds()  # Différence en secondes
         time_diff_minutes = int(time_diff_seconds / 60)  # Différence en minutes
-        hours, minutes = divmod(time_diff_minutes, 60)  # Convertir en heures et minutes  # Différence en minutes
+        hours, minutes = divmod(time_diff_minutes, 60)
+        end_time = meeting_time + timedelta(minutes=30)  # Convertir en heures et minutes  # Différence en minutes
+        remaining_minutes = int((end_time - current_time).total_seconds() / 60)
+      
 
         if hours > 0:
             time_display = f"{hours} heure{'s' if hours > 1 else ''} {minutes} minute{'s' if minutes > 1 else ''}"
@@ -394,7 +397,10 @@ class VideoConferenceAdmin(admin.ModelAdmin):
 
         
 
-        if -30 <= time_diff_minutes <= 30:
+        if -30<=time_diff_minutes<0:
+            return format_html('<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Retard (Disponible encore {}min )</a>',obj.meeting_url,remaining_minutes)
+        
+        elif 0<= time_diff_minutes <= 30:
             return format_html(
                 '<a href="{}" target="_blank" class="button" style="background-color:#006400; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold;">🎥 Démarrer (Commence dans {} )</a>',
                 obj.meeting_url, time_display
